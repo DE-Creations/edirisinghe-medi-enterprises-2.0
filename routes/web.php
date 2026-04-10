@@ -18,6 +18,8 @@ $pages = [
     '/customers' => 'CustomersPage',
     '/suppliers' => 'SuppliersPage',
     '/vat-invoices' => 'VATInvoicesPage',
+    '/receivables' => 'ReceivablesPage',
+    '/payables' => 'PayablesPage',
     '/reports' => 'ReportsPage',
     '/settings' => 'SettingsPage',
 ];

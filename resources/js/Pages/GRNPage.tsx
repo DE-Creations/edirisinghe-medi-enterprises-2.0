@@ -4,10 +4,11 @@ import React, { useState } from 'react';
 import { initialProducts, initialSuppliers, nextGRNNumber, type Product } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FloatingInput } from '@/components/ui/floating-input';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { format } from 'date-fns';
-import { Plus, Trash2, Printer, Barcode } from 'lucide-react';
+import { Trash2, Printer, Barcode, Save } from 'lucide-react';
 
 function GRNPage() {
   const [grnNum] = useState(nextGRNNumber());
@@ -16,11 +17,14 @@ function GRNPage() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [items, setItems] = useState<{ productId: string; name: string; qty: number; costPrice: number }[]>([]);
   const [paidAmount, setPaidAmount] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'cheque'>('cash');
 
   const supplierOptions = initialSuppliers.map((s) => ({ value: s.id, label: `${s.name} — ${s.company}` }));
 
   const total = items.reduce((s, i) => s + i.qty * i.costPrice, 0);
-  const balance = total - Number(paidAmount || 0);
+  const discountedTotal = Math.max(0, total - Number(discount || 0));
+  const balance = discountedTotal - Number(paidAmount || 0);
 
   const handleBarcode = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && barcodeInput) {
@@ -95,23 +99,58 @@ function GRNPage() {
           </table>
         </div>
 
-        {/* Payment */}
-        <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t">
-          <div>
-            <label className="text-xs text-muted-foreground">Total</label>
-            <p className="text-lg font-bold text-primary">Rs. {total.toLocaleString()}</p>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Paid Amount</label>
-            <Input type="number" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Balance</label>
-            <p className={`text-lg font-bold ${balance > 0 ? 'text-destructive' : 'text-success'}`}>Rs. {balance.toLocaleString()}</p>
-          </div>
+        {/* Payment Method */}
+        <div className="flex gap-2 mt-4 pt-4 border-t">
+          {(['cash', 'card', 'cheque'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setPaymentMethod(m)}
+              className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${paymentMethod === m ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'}`}
+            >
+              {m === 'cash' ? '💵 Cash' : m === 'card' ? '💳 Card' : '🏦 Cheque'}
+            </button>
+          ))}
         </div>
 
-        <Button className="w-full mt-4 gap-2"><Printer className="h-4 w-4" /> Save & Print GRN</Button>
+        {/* Payment Fields */}
+        <div className="grid grid-cols-4 gap-3 mt-3">
+          <FloatingInput
+            label="Total (Rs.)"
+            value={`Rs. ${discountedTotal.toLocaleString()}`}
+            readOnly
+            className="h-[52px] bg-muted/30 cursor-default"
+          />
+          <FloatingInput
+            label="Discount (Rs.)"
+            type="number"
+            value={discount}
+            onChange={(e) => setDiscount(e.target.value)}
+            className="h-[52px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <FloatingInput
+            label="Paid Amount (Rs.)"
+            type="number"
+            value={paidAmount}
+            onChange={(e) => setPaidAmount(e.target.value)}
+            className="h-[52px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <FloatingInput
+            label="Balance (Rs.)"
+            value={`Rs. ${Math.abs(balance).toLocaleString()}`}
+            readOnly
+            className={`h-[52px] cursor-default ${balance > 0 ? 'text-destructive bg-destructive/5 border-destructive/30' : 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 mt-4">
+          <Button className="flex-1 gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Save className="h-4 w-4" /> Save GRN
+          </Button>
+          <Button className="flex-1 gap-2">
+            <Printer className="h-4 w-4" /> Save & Print GRN
+          </Button>
+        </div>
       </div>
     </div>
   );

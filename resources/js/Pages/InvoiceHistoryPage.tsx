@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
 import React, { useState } from 'react';
-import { initialInvoices, type Invoice } from '@/data/mockData';
+import { initialInvoices, initialReceivablePayments, type Invoice } from '@/data/mockData';
 import SearchBar from '@/components/shared/SearchBar';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,6 +10,7 @@ import { Printer, Eye, Trash2 } from 'lucide-react';
 
 function InvoiceHistoryPage() {
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const [payments] = useState(initialReceivablePayments);
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [viewInv, setViewInv] = useState<Invoice | null>(null);
@@ -173,6 +174,48 @@ function InvoiceHistoryPage() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-semibold">Total</span>
                 <span className="text-xl font-bold text-primary">Rs. {viewInv.total.toLocaleString()}</span>
+              </div>
+
+              <Separator />
+
+              {/* Receivable Payments */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Payment Records</p>
+                {(() => {
+                  const invPayments = payments.filter((p) => p.invoiceId === viewInv.id);
+                  const collected = invPayments.reduce((s, p) => s + p.amount, 0);
+                  const outstanding = Math.max(0, viewInv.total - collected);
+                  return invPayments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">No payment records found.</p>
+                  ) : (
+                    <>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left py-2 font-medium text-muted-foreground text-xs">Date</th>
+                            <th className="text-right py-2 font-medium text-muted-foreground text-xs">Amount</th>
+                            <th className="text-left py-2 font-medium text-muted-foreground text-xs pl-4">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {invPayments.map((p) => (
+                            <tr key={p.id} className="border-b border-border last:border-0">
+                              <td className="py-2">{p.date}</td>
+                              <td className="py-2 text-right font-medium text-green-600">Rs. {p.amount.toLocaleString()}</td>
+                              <td className="py-2 pl-4 text-muted-foreground">{p.notes ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="flex justify-between pt-2 mt-1 border-t text-sm">
+                        <span className="text-muted-foreground">Outstanding</span>
+                        <span className={`font-semibold ${outstanding > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                          Rs. {outstanding.toLocaleString()}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}

@@ -9,7 +9,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { format } from 'date-fns';
 import { FloatingInput } from '@/components/ui/floating-input';
 import SearchBar from '@/components/shared/SearchBar';
-import { ShoppingCart, Plus, Minus, Trash2, Printer, Barcode } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Printer, Barcode, Save } from 'lucide-react';
 
 function InvoicePage() {
   const [invoiceNum] = useState(nextInvoiceNumber());
@@ -17,8 +17,9 @@ function InvoicePage() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [cart, setCart] = useState<InvoiceItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'cheque'>('cash');
   const [paidAmount, setPaidAmount] = useState('');
+  const [discount, setDiscount] = useState('');
   const [productSearch, setProductSearch] = useState('');
 
   const products = initialProducts;
@@ -30,7 +31,8 @@ function InvoicePage() {
   ];
 
   const total = cart.reduce((s, i) => s + i.qty * i.price, 0);
-  const balance = Number(paidAmount || 0) - total;
+  const discountedTotal = Math.max(0, total - Number(discount || 0));
+  const balance = Number(paidAmount || 0) - discountedTotal;
 
   const addToCart = (p: Product) => {
     setCart((prev) => {
@@ -166,48 +168,61 @@ function InvoicePage() {
             <span className="text-muted-foreground">Subtotal ({cart.length} items)</span>
             <span className="font-semibold">Rs. {total.toLocaleString()}</span>
           </div>
+          {Number(discount) > 0 && (
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Discount</span>
+              <span>- Rs. {Number(discount).toLocaleString()}</span>
+            </div>
+          )}
 
           <div className="flex gap-2">
-            <button
-              onClick={() => setPaymentMethod('cash')}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${paymentMethod === 'cash' ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'}`}
-            >
-              💵 Cash
-            </button>
-            <button
-              onClick={() => setPaymentMethod('card')}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${paymentMethod === 'card' ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'}`}
-            >
-              💳 Card
-            </button>
+            {(['cash', 'card', 'cheque'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setPaymentMethod(m)}
+                className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${paymentMethod === m ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'}`}
+              >
+                {m === 'cash' ? '💵 Cash' : m === 'card' ? '💳 Card' : '🏦 Cheque'}
+              </button>
+            ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <FloatingInput
-                label="Paid Amount"
-                type="number"
-                value={paidAmount}
-                onChange={(e) => setPaidAmount(e.target.value)}
-                className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
-            <div className="relative">
-              <div className={`h-10 flex items-end pb-1 px-3 rounded-md border text-sm font-semibold ${balance >= 0 ? 'text-success border-success/30 bg-success/5' : 'text-destructive border-destructive/30 bg-destructive/5'}`}>
-                Rs. {balance.toLocaleString()}
-              </div>
-              <span className="absolute left-3 top-1.5 text-[10px] text-muted-foreground pointer-events-none">Balance</span>
-            </div>
+          <div className="grid grid-cols-3 gap-2">
+            <FloatingInput
+              label="Discount (Rs.)"
+              type="number"
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+              className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <FloatingInput
+              label="Paid Amount"
+              type="number"
+              value={paidAmount}
+              onChange={(e) => setPaidAmount(e.target.value)}
+              className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <FloatingInput
+              label="Balance"
+              value={`Rs. ${Math.abs(balance).toLocaleString()}`}
+              readOnly
+              className={`cursor-default ${balance >= 0 ? 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'text-destructive bg-destructive/5 border-destructive/30'}`}
+            />
           </div>
 
           <div className="bg-primary/10 rounded-lg p-3 text-center">
             <p className="text-[10px] text-muted-foreground">TOTAL</p>
-            <p className="text-2xl font-bold text-primary">Rs. {total.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-primary">Rs. {discountedTotal.toLocaleString()}</p>
           </div>
 
-          <Button className="w-full gap-2" disabled={cart.length === 0}>
-            <Printer className="h-4 w-4" /> Complete & Print Invoice
-          </Button>
+          <div className="flex gap-2">
+            <Button className="flex-1 gap-2 bg-blue-600 hover:bg-blue-700 text-white" disabled={cart.length === 0}>
+              <Save className="h-4 w-4" /> Save
+            </Button>
+            <Button className="flex-1 gap-2" disabled={cart.length === 0}>
+              <Printer className="h-4 w-4" /> Save & Print
+            </Button>
+          </div>
         </div>
       </div>
     </div>
