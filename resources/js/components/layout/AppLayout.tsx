@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Users, Package, ShoppingCart,
   Truck, ClipboardList, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Pill, Receipt, History,
-  UserCheck, Moon, Sun, Menu,
+  UserCheck, Moon, Sun, Menu, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +30,8 @@ const navItems: NavItem[] = [
   { label: 'Customers', path: '/customers', icon: UserCheck, roles: ['owner', 'admin', 'cashier'] },
   { label: 'Suppliers', path: '/suppliers', icon: Truck, roles: ['owner', 'admin'] },
   { label: 'VAT Invoices', path: '/vat-invoices', icon: Receipt, roles: ['owner', 'admin'] },
+  { label: 'Receivables', path: '/receivables', icon: TrendingUp, roles: ['owner', 'admin'] },
+  { label: 'Payables', path: '/payables', icon: TrendingDown, roles: ['owner', 'admin'] },
   { label: 'Reports', path: '/reports', icon: BarChart3, roles: ['owner'] },
   { label: 'Settings', path: '/settings', icon: Settings, roles: ['owner', 'admin'] },
 ];
