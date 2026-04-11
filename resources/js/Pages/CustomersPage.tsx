@@ -49,9 +49,11 @@ function CustomersPage() {
       </label>
       {form.isVat && (
         <div className="grid grid-cols-2 gap-3 p-3 bg-muted rounded-lg">
-          <div><label className="text-xs font-medium text-muted-foreground mb-1 block">VAT Number</label><Input value={form.vatNumber || ''} onChange={(e) => setForm({ ...form, vatNumber: e.target.value })} /></div>
           <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Company Name</label><Input value={form.companyName || ''} onChange={(e) => setForm({ ...form, companyName: e.target.value })} /></div>
-          <div className="col-span-2"><label className="text-xs font-medium text-muted-foreground mb-1 block">Company Address</label><Input value={form.companyAddress || ''} onChange={(e) => setForm({ ...form, companyAddress: e.target.value })} /></div>
+          <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Nick Name</label><Input value={form.nickName || ''} onChange={(e) => setForm({ ...form, nickName: e.target.value })} /></div>
+          <div className="col-span-2"><label className="text-xs font-medium text-muted-foreground mb-1 block">VAT Company Address</label><Input value={form.companyAddress || ''} onChange={(e) => setForm({ ...form, companyAddress: e.target.value })} /></div>
+          <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Contact Number</label><Input value={form.contactNumber || ''} onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} /></div>
+          <div><label className="text-xs font-medium text-muted-foreground mb-1 block">VAT No</label><Input value={form.vatNumber || ''} onChange={(e) => setForm({ ...form, vatNumber: e.target.value })} /></div>
         </div>
       )}
       <div className="flex justify-end gap-2 pt-2">
@@ -67,7 +69,7 @@ function CustomersPage() {
         <div className="flex gap-3 items-center">
           <div className="w-60"><SearchBar value={search} onChange={setSearch} placeholder="Search customers..." /></div>
           <div className="flex rounded-lg border border-border overflow-hidden">
-            {['all', 'vat', 'normal'].map((t) => (
+            {['all', 'VAT', 'Regular'].map((t) => (
               <button key={t} onClick={() => setTab(t as typeof tab)} className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${tab === t ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>{t === 'vat' ? 'VAT' : t}</button>
             ))}
           </div>

@@ -294,7 +294,8 @@ function StockPage() {
                 type="number"
                 value={String(form.qty ?? '')}
                 onChange={(e) => setForm({ ...form, qty: Number(e.target.value) })}
-                className={spinnerOff}
+                className={`${spinnerOff}${editEntry ? ' bg-muted/30 cursor-not-allowed' : ''}`}
+                readOnly={!!editEntry}
               />
             </div>
             <div className="flex flex-col gap-1.5">

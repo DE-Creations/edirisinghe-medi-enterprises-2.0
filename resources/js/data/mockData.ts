@@ -37,7 +37,9 @@ export interface Customer {
   isVat: boolean;
   vatNumber?: string;
   companyName?: string;
+  nickName?: string;
   companyAddress?: string;
+  contactNumber?: string;
 }
 
 export interface Supplier {
@@ -279,3 +281,42 @@ export const nextStockNumber = () => `STK-${String(++stockCounter).padStart(4, '
 
 let adjCounter = 1;
 export const nextAdjNumber = () => `ADJ-${String(++adjCounter).padStart(4, '0')}`;
+
+// ── VAT Invoices ──────────────────────────────────────────────────────────────
+
+export interface VatInvoiceRecord {
+  refNo: string;
+  invoiceItem: string;
+  quantity: number;
+  unitPrice: number;
+  amountExclVat: number;
+}
+
+export interface VatInvoice {
+  id: string;
+  vatInvoiceNumber: string;
+  customerId: string;
+  customerName: string;
+  companyNickName: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  date: string;
+  records: VatInvoiceRecord[];
+  subtotal: number;
+  vatPercentage: number;
+  vatAmount: number;
+  grandTotal: number;
+  paymentMode: string;
+}
+
+export const initialVatInvoices: VatInvoice[] = [];
+
+let vatInvoiceCounter = 0;
+export const nextVatInvoiceNumber = (nickName: string): string => {
+  vatInvoiceCounter += 1;
+  const now = new Date();
+  const year = String(now.getFullYear()).slice(-2);
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const month = months[now.getMonth()];
+  return `${year}${month}_${nickName.toUpperCase()}_${String(vatInvoiceCounter).padStart(5, '0')}`;
+};

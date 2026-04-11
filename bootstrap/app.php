@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [\App\Http\Middleware\HandleInertiaRequests::class]);
+        $middleware->validateCsrfTokens(except: [
+            'vat-invoices/pdf',
+            'vat-invoices/pdf/history',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
