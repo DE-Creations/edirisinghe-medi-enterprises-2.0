@@ -46,14 +46,15 @@ use App\Http\Controllers\CustomerController;
 | Root Redirect
 |--------------------------------------------------------------------------
 */
-Route::get('/', fn () => redirect('/invoice'));
+
+Route::get('/', fn() => redirect('/invoice'));
 
 /*
 |--------------------------------------------------------------------------
 | Auth Routes
 |--------------------------------------------------------------------------
 */
-Route::get('/login', fn () => Inertia::render('LoginPage'))->name('login');
+Route::get('/login', fn() => Inertia::render('LoginPage'))->name('login');
 
 /*
 |--------------------------------------------------------------------------
@@ -63,50 +64,53 @@ Route::get('/login', fn () => Inertia::render('LoginPage'))->name('login');
 Route::prefix('/')->group(function () {
 
     // Dashboard
-    Route::get('dashboard', fn () => Inertia::render('DashboardPage'));
+    Route::get('dashboard', fn() => Inertia::render('DashboardPage'));
 
     // Invoice
     Route::prefix('invoice')->group(function () {
-        Route::get('/', fn () => Inertia::render('InvoicePage'));
-        Route::get('history', fn () => Inertia::render('InvoiceHistoryPage'));
+        Route::get('/', fn() => Inertia::render('InvoicePage'));
+        Route::get('history', fn() => Inertia::render('InvoiceHistoryPage'));
     });
 
     // GRN
     Route::prefix('grn')->group(function () {
-        Route::get('/', fn () => Inertia::render('GRNPage'));
-        Route::get('history', fn () => Inertia::render('GRNHistoryPage'));
+        Route::get('/', fn() => Inertia::render('GRNPage'));
+        Route::get('history', fn() => Inertia::render('GRNHistoryPage'));
     });
 
     // Inventory
     Route::prefix('/')->group(function () {
-        Route::get('products', fn () => Inertia::render('ProductsPage'));
-        Route::get('stock',    fn () => Inertia::render('StockPage'));
+        Route::get('products', fn() => Inertia::render('ProductsPage'));
+        Route::get('stock',    fn() => Inertia::render('StockPage'));
     });
 
     // People
     Route::prefix('/')->group(function () {
-        Route::get('employees',  fn () => Inertia::render('EmployeesPage'));
-       
-        Route::get('suppliers',  fn () => Inertia::render('SuppliersPage'));
+        Route::get('employees',  fn() => Inertia::render('EmployeesPage'));
+
+        Route::get('suppliers',  fn() => Inertia::render('SuppliersPage'));
     });
 
-        // People
-    Route::prefix('/')->group(function () {
-       Route::get('customers',  fn () => Inertia::render('CustomersPage'));
-       Route::post('customers/store', [CustomerController::class, 'store']);
+    // People
+    Route::prefix('/customers')->group(function () {
+        Route::get('/',  fn() => Inertia::render('CustomersPage'));
+        Route::get('/all', [CustomerController::class, 'all'])->name('customers/all');
+        Route::post('/store', [CustomerController::class, 'store'])->name('customers/store');
+        Route::post('/update/{id}', [CustomerController::class, 'update'])->name('customers/update');
+        Route::delete('/delete/{id}', [CustomerController::class, 'delete'])->name('customers/delete');
     });
 
     // Finance
     Route::prefix('/')->group(function () {
-        Route::get('vat-invoices',  fn () => Inertia::render('VATInvoicesPage'));
-        Route::get('receivables',   fn () => Inertia::render('ReceivablesPage'));
-        Route::get('payables',      fn () => Inertia::render('PayablesPage'));
+        Route::get('vat-invoices',  fn() => Inertia::render('VATInvoicesPage'));
+        Route::get('receivables',   fn() => Inertia::render('ReceivablesPage'));
+        Route::get('payables',      fn() => Inertia::render('PayablesPage'));
     });
 
     // Misc
     Route::prefix('/')->group(function () {
-        Route::get('reports',  fn () => Inertia::render('ReportsPage'));
-        Route::get('settings', fn () => Inertia::render('SettingsPage'));
+        Route::get('reports',  fn() => Inertia::render('ReportsPage'));
+        Route::get('settings', fn() => Inertia::render('SettingsPage'));
     });
 });
 
@@ -115,15 +119,14 @@ Route::prefix('/')->group(function () {
 | VAT Invoice PDF Routes (CSRF Exempt — pure view render, no state mutation)
 |--------------------------------------------------------------------------
 */
-Route::prefix('vat-invoices/pdf')->group(function () {
-    Route::post('/',        [VatInvoiceController::class, 'generatePdf']);
-    Route::post('history',  [VatInvoiceController::class, 'viewHistoryPdf']);
-});
+// Route::prefix('vat-invoices/pdf')->group(function () {
+//     Route::post('/',        [VatInvoiceController::class, 'generatePdf']);
+//     Route::post('history',  [VatInvoiceController::class, 'viewHistoryPdf']);
+// });
 
 /*
 |--------------------------------------------------------------------------
 | Fallback
 |--------------------------------------------------------------------------
 */
-Route::fallback(fn () => Inertia::render('NotFound'));
-
+Route::fallback(fn() => Inertia::render('NotFound'));
