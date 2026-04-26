@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { initialProducts, initialSuppliers, nextGRNNumber, type Product } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { format } from 'date-fns';
 import { Trash2, Printer, Barcode, Save } from 'lucide-react';
+import BarcodeScanner from '@/components/BarcodeScanner';
 
 function GRNPage() {
   const [grnNum] = useState(nextGRNNumber());
@@ -19,6 +20,8 @@ function GRNPage() {
   const [paidAmount, setPaidAmount] = useState('');
   const [discount, setDiscount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'cheque'>('cash');
+  const [showScanner, setShowScanner] = useState(false);
+  const inputRef = useRef(null);
 
   const supplierOptions = initialSuppliers.map((s) => ({ value: s.id, label: `${s.name} — ${s.company}` }));
 
@@ -39,6 +42,10 @@ function GRNPage() {
       setBarcodeInput('');
     }
   };
+
+  useEffect(() => {
+  inputRef.current?.focus();
+}, []);
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
@@ -64,9 +71,24 @@ function GRNPage() {
           </div>
         </div>
 
-        <div className="relative mb-4">
+        {/* <div className="relative mb-4">
           <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcode} placeholder="Scan barcode to add products..." className="pl-9" />
+        </div> */}
+
+        <div className="relative mb-4 flex gap-2">
+        <Input
+        ref={inputRef}
+            value={barcodeInput}
+            onChange={(e) => setBarcodeInput(e.target.value)}
+            onKeyDown={handleBarcode}
+            placeholder="Scan barcode or type..."
+            className="pl-9"
+        />
+
+        <Button onClick={() => setShowScanner(!showScanner)}>
+            📷 Scan
+        </Button>
         </div>
 
         {/* Items Table */}
@@ -152,6 +174,43 @@ function GRNPage() {
           </Button>
         </div>
       </div>
+
+      {showScanner && (
+        <div className="mb-4 border rounded-lg p-3">
+            <BarcodeScanner
+            onScan={(code) => {
+                new Audio('/beep.mp3').play();
+                setBarcodeInput(code);
+                console.log('Scanned barcode:', code);
+
+                // simulate Enter key logic
+                const p = initialProducts.find((pr) => pr.barcode === code);
+                if (p) {
+                setItems((prev) => {
+                    const existing = prev.find((i) => i.productId === p.id);
+                    if (existing) {
+                    return prev.map((i) =>
+                        i.productId === p.id ? { ...i, qty: i.qty + 1 } : i
+                    );
+                    }
+                    return [
+                    ...prev,
+                    {
+                        productId: p.id,
+                        name: p.name,
+                        qty: 1,
+                        costPrice: p.costPrice,
+                    },
+                    ];
+                });
+                }
+
+                setShowScanner(false);
+            }}
+            />
+        </div>
+        )}
+
     </div>
   );
 }
