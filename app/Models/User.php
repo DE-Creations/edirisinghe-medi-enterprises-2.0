@@ -18,9 +18,17 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
-        'email',
-        'password',
+        'name', 
+        'email', 
+        'user_name', 
+        'password', 
+        'mobile', 
+        'address', 
+        'designation', 
+        'nic', 
+        'hiring_date', 
+        'role_id', 
+        'status'
     ];
 
     /**
@@ -44,5 +52,21 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function role(): BelongsTo { 
+        return $this->belongsTo(Role::class); 
+    }
+
+    public function stockBatches(): HasMany {
+        return $this->hasMany(StockBatch::class , 'user_id');
+    }
+
+    public function invoices(): HasMany {
+        return $this->hasMany(Invoice::class , 'user_id');
+    }
+
+    public function grns(): HasMany {
+        return $this->hasMany(GRN::class , 'user_id');
     }
 }

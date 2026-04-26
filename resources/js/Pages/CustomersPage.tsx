@@ -8,6 +8,7 @@ import SearchBar from '@/components/shared/SearchBar';
 import Modal from '@/components/shared/Modal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { Plus, Edit, Trash2 } from 'lucide-react';
+import axios from 'axios';
 
 function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
@@ -25,13 +26,28 @@ function CustomersPage() {
     return matchSearch;
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editCust) {
       setCustomers((prev) => prev.map((c) => c.id === editCust.id ? { ...c, ...form } as Customer : c));
       setEditCust(null);
     } else {
       setCustomers((prev) => [...prev, { ...form, id: String(Date.now()) } as Customer]);
+      try {
+
+        const response = await axios.post('/customers/store', form);
+        const newCustomer = response.data;
+
+      //Swal.fire({ icon: "success", title: "Success", text: "Service Rule added Successfully!" });
+      // onUserRoleCreated();
+      // onClose();
+      // setFormData(initialState);
+ 
       setShowAdd(false);
+      } catch (error) {
+      //         const message = error.response?.data?.detail || error.message || "Failed to update user.";
+      // Swal.fire({ icon: "error", title: "Error", text: message });
+      }
+      
     }
     setForm({ isVat: false });
   };
