@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { initialCustomers, type Customer } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,27 @@ function CustomersPage() {
   const [form, setForm] = useState<Partial<Customer>>({ isVat: false });
   const [tab, setTab] = useState<'all' | 'vat' | 'normal'>('all');
 
+  useEffect(() => {
+    fetchCustomers();
+  },[]);
+
+  const fetchCustomers = async ()=>{
+    try {
+        const response = await axios.get('customers/all');
+        const customerData = response.data.map((customer: any) => ({
+        id: customer.id,
+        name: customer.name,
+        mobile: customer.contact_no,
+        address: customer.address,
+        // isVat : customer.isVat
+        }));
+        setCustomers(customerData);
+    } catch (error) {
+        console.log(error);
+    // Swal.fire({ icon: "error", title: "Error", text: "Failed to fetch service type data." });
+    }
+  }
+
   const filtered = customers.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.mobile.includes(search);
     if (tab === 'vat') return matchSearch && c.isVat;
@@ -29,11 +50,20 @@ function CustomersPage() {
   const handleSave = async () => {
     if (editCust) {
       setCustomers((prev) => prev.map((c) => c.id === editCust.id ? { ...c, ...form } as Customer : c));
-      setEditCust(null);
+      try {
+        const response = await axios.post(`/customers/update/${form.id}`, form);
+        const editCustomer = response.data;
+        // Swal.fire({ icon: "success", title: "Success", text: "Service Rule added Successfully!" });
+        setShowAdd(false);
+        setEditCust(null);
+      } catch (error) {
+      //         const message = error.response?.data?.detail || error.message || "Failed to update user.";
+      // Swal.fire({ icon: "error", title: "Error", text: message });
+      }
+
     } else {
       setCustomers((prev) => [...prev, { ...form, id: String(Date.now()) } as Customer]);
-      try {
-
+        try {
         const response = await axios.post('/customers/store', form);
         const newCustomer = response.data;
 
@@ -41,16 +71,22 @@ function CustomersPage() {
       // onUserRoleCreated();
       // onClose();
       // setFormData(initialState);
- 
+
       setShowAdd(false);
       } catch (error) {
       //         const message = error.response?.data?.detail || error.message || "Failed to update user.";
       // Swal.fire({ icon: "error", title: "Error", text: message });
       }
-      
+
     }
     setForm({ isVat: false });
-  };
+    };
+
+  const deleteCustomer = async () => {
+    await axios.delete(`/customers/delete/${deleteId}`);
+    fetchCustomers();
+    setDeleteId(null);
+  }
 
   const CustomerForm = () => (
     <div className="space-y-3">
@@ -128,7 +164,7 @@ function CustomersPage() {
       <Modal open={showAdd || !!editCust} onClose={() => { setShowAdd(false); setEditCust(null); setForm({ isVat: false }); }} title={editCust ? 'Update Customer' : 'Add Customer'} size="lg">
         <CustomerForm />
       </Modal>
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => { setCustomers((prev) => prev.filter((c) => c.id !== deleteId)); setDeleteId(null); }} />
+      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={deleteCustomer}/>
     </div>
   );
 }

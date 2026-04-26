@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import SearchBar from '@/components/shared/SearchBar';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { Plus, Edit, Trash2, Barcode } from 'lucide-react';
+import BarcodeScanner from '@/components/BarcodeScanner';
 
 const spinnerOff = '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
 
@@ -22,6 +23,9 @@ function ProductsPage() {
   const [form, setForm] = useState<Partial<Product>>({});
   const [brandList, setBrandList] = useState(brands);
   const [catList, setCatList] = useState(categories);
+  const [showScanner, setShowScanner] = useState(false);
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [items, setItems] = useState<{ productId: string; name: string; qty: number; costPrice: number }[]>([]);
 
   // Add brand/category dialogs
   const [showNewBrand, setShowNewBrand] = useState(false);
@@ -161,6 +165,7 @@ function ProductsPage() {
                   value={form.barcode || ''}
                   onChange={(e) => setForm({ ...form, barcode: e.target.value })}
                   className={spinnerOff}
+                  onFocus={() => setShowScanner(!showScanner)}
                 />
               </div>
               <Button
@@ -315,6 +320,42 @@ function ProductsPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={() => { setProducts((prev) => prev.filter((p) => p.id !== deleteId)); setDeleteId(null); }}
       />
+
+      {showScanner && (
+              <div className="mb-4 border rounded-lg p-3">
+                  <BarcodeScanner
+                  onScan={(code) => {
+                      new Audio('/beep.mp3').play();
+                      setBarcodeInput(code);
+                      console.log('Scanned barcode:', code);
+
+                      // simulate Enter key logic
+                      const p = initialProducts.find((pr) => pr.barcode === code);
+                      if (p) {
+                      setItems((prev) => {
+                          const existing = prev.find((i) => i.productId === p.id);
+                          if (existing) {
+                          return prev.map((i) =>
+                              i.productId === p.id ? { ...i, qty: i.qty + 1 } : i
+                          );
+                          }
+                          return [
+                          ...prev,
+                          {
+                              productId: p.id,
+                              name: p.name,
+                              qty: 1,
+                              costPrice: p.costPrice,
+                          },
+                          ];
+                      });
+                      }
+
+                      setShowScanner(false);
+                  }}
+                  />
+              </div>
+              )}
     </div>
   );
 }
