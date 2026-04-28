@@ -40,6 +40,8 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CompanyController;   
+use App\Http\Controllers\SupplierController;
 
 /*
 |--------------------------------------------------------------------------
@@ -91,13 +93,30 @@ Route::prefix('/')->group(function () {
         Route::get('suppliers',  fn() => Inertia::render('SuppliersPage'));
     });
 
-    // People
+    // customers
     Route::prefix('/customers')->group(function () {
         Route::get('/',  fn() => Inertia::render('CustomersPage'));
         Route::get('/all', [CustomerController::class, 'all'])->name('customers/all');
         Route::post('/store', [CustomerController::class, 'store'])->name('customers/store');
         Route::post('/update/{id}', [CustomerController::class, 'update'])->name('customers/update');
         Route::delete('/delete/{id}', [CustomerController::class, 'delete'])->name('customers/delete');
+    });
+
+    // companies
+    Route::prefix('/companies')->group(function () {
+        Route::get('/all', [CompanyController::class, 'all'])->name('companies/all');
+        Route::post('/store', [CompanyController::class, 'store'])->name('companies/store');
+        Route::post('/update/{id}', [CompanyController::class, 'update'])->name('companies/update');
+        Route::delete('/delete/{id}', [CompanyController::class, 'delete'])->name('companies/delete');
+    });
+
+    // suppliers
+    Route::prefix('/suppliers')->group(function () {
+        Route::get('/', fn() => Inertia::render('SuppliersPage'));
+        Route::get('/all', [SupplierController::class, 'all'])->name('suppliers/all');
+        Route::post('/store', [SupplierController::class, 'store'])->name('suppliers/store');
+        Route::post('/update/{id}', [SupplierController::class, 'update'])->name('suppliers/update');
+        Route::delete('/delete/{id}', [SupplierController::class, 'delete'])->name('suppliers/delete');
     });
 
     // Finance
