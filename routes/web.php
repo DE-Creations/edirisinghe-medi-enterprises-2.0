@@ -40,6 +40,12 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CompanyController;   
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\BrandController;
+use App\Http\Controllers\UnitTypeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -91,13 +97,57 @@ Route::prefix('/')->group(function () {
         Route::get('suppliers',  fn() => Inertia::render('SuppliersPage'));
     });
 
-    // People
+    // customers
     Route::prefix('/customers')->group(function () {
         Route::get('/',  fn() => Inertia::render('CustomersPage'));
         Route::get('/all', [CustomerController::class, 'all'])->name('customers/all');
         Route::post('/store', [CustomerController::class, 'store'])->name('customers/store');
         Route::post('/update/{id}', [CustomerController::class, 'update'])->name('customers/update');
         Route::delete('/delete/{id}', [CustomerController::class, 'delete'])->name('customers/delete');
+    });
+
+    // companies
+    Route::prefix('/companies')->group(function () {
+        Route::get('/all', [CompanyController::class, 'all'])->name('companies/all');
+        Route::post('/store', [CompanyController::class, 'store'])->name('companies/store');
+        Route::post('/update/{id}', [CompanyController::class, 'update'])->name('companies/update');
+        Route::delete('/delete/{id}', [CompanyController::class, 'delete'])->name('companies/delete');
+    });
+
+    // suppliers
+    Route::prefix('/suppliers')->group(function () {
+        Route::get('/', fn() => Inertia::render('SuppliersPage'));
+        Route::get('/all', [SupplierController::class, 'all'])->name('suppliers/all');
+        Route::post('/store', [SupplierController::class, 'store'])->name('suppliers/store');
+        Route::post('/update/{id}', [SupplierController::class, 'update'])->name('suppliers/update');
+        Route::delete('/delete/{id}', [SupplierController::class, 'delete'])->name('suppliers/delete');
+    });
+
+    // Products
+    Route::prefix('/products')->group(function(){
+        Route::get('/', fn() => Inertia::render('ProductsPage'));
+        Route::get('/all', [ProductController::class, 'all'])->name('products/all');
+        Route::post('/store', [ProductController::class, 'store'])->name('products/store');
+        Route::post('/update/{id}', [ProductController::class, 'update'])->name('products/update');
+        Route::delete('/delete/{id}', [ProductController::class, 'delete'])->name('products/delete');
+    });
+
+    // Categories
+    Route::prefix('/categories')->group(function () {
+        Route::get('/all', [CategoryController::class, 'all'])->name('categories/all');
+        Route::post('/store', [CategoryController::class, 'store'])->name('categories/store');
+    });
+
+    // Brands
+    Route::prefix('/brands')->group(function () {
+        Route::get('/all', [BrandController::class, 'all'])->name('brands/all');
+        Route::post('/store', [BrandController::class, 'store'])->name('brands/store');
+    });
+
+    // Unit Types
+    Route::prefix('/unit-types')->group(function () {
+        Route::get('/all', [UnitTypeController::class, 'all'])->name('unit-types/all');
+        Route::post('/store', [UnitTypeController::class, 'store'])->name('unit-types/store');
     });
 
     // Finance

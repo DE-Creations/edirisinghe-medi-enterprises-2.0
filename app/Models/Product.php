@@ -3,12 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'generic_name', 
-        'brand_name', 
         'sku', 
         'barcode_value', 
         'reorder_level', 
@@ -20,24 +24,24 @@ class Product extends Model
 
     // Get the category this product belongs to
     public function category(): BelongsTo {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Categories::class, 'category_id');
     }
 
     public function unitType(): BelongsTo {
-        return $this->belongsTo(UnitType::class);
+        return $this->belongsTo(UnitTypes::class, 'unit_type_id');
     }
 
     public function brand(): BelongsTo {
-        return $this->belongsTo(Brand::class);
+        return $this->belongsTo(Brands::class, 'brand_id');
     }
 
     // Get all stock batches for this product
     public function batches(): HasMany {
-        return $this->hasMany(StockBatch::class , 'product_id');
+        return $this->hasMany(StockBatches::class , 'product_id');
     }
 
     public function grnItems(): HasMany {
-        return $this->hasMany(GrnItem::class, 'product_id');
+        return $this->hasMany(Grn_Items::class, 'product_id');
     }
 
     // A helper to get total current stock across all batches
