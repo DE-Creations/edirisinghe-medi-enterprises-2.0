@@ -40,7 +40,7 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\CompanyController;   
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
@@ -125,7 +125,7 @@ Route::prefix('/')->group(function () {
     });
 
     // Products
-    Route::prefix('/products')->group(function () {
+    Route::prefix('/products')->group(function(){
         Route::get('/', fn() => Inertia::render('ProductsPage'));
         Route::get('/all', [ProductController::class, 'all'])->name('products/all');
         Route::post('/store', [ProductController::class, 'store'])->name('products/store');
