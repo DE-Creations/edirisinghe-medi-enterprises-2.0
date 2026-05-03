@@ -40,11 +40,12 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\CompanyController;   
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UnitTypeController;
 
 /*
@@ -124,7 +125,7 @@ Route::prefix('/')->group(function () {
     });
 
     // Products
-    Route::prefix('/products')->group(function(){
+    Route::prefix('/products')->group(function () {
         Route::get('/', fn() => Inertia::render('ProductsPage'));
         Route::get('/all', [ProductController::class, 'all'])->name('products/all');
         Route::post('/store', [ProductController::class, 'store'])->name('products/store');
@@ -160,7 +161,15 @@ Route::prefix('/')->group(function () {
     // Misc
     Route::prefix('/')->group(function () {
         Route::get('reports',  fn() => Inertia::render('ReportsPage'));
-        Route::get('settings', fn() => Inertia::render('SettingsPage'));
+    });
+
+    // Settings
+    Route::prefix('/settings')->group(function () {
+        Route::get('/', fn() => Inertia::render('SettingsPage'));
+        Route::get('/all', [SettingsController::class, 'all'])->name('settings/all');
+        Route::post('/change_theme', [SettingsController::class, 'change_theme'])->name('settings/change_theme');
+        Route::post('/update_company_profile', [SettingsController::class, 'update_company_profile'])->name('settings/update_company_profile');
+        Route::post('/update_vat_settings', [SettingsController::class, 'update_vat_settings'])->name('settings/update_vat_settings');
     });
 });
 

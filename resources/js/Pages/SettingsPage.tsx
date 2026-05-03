@@ -1,19 +1,92 @@
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Sun, Moon, Shield, Building, Receipt } from 'lucide-react';
+import axios from 'axios';
 
 function SettingsPage() {
-  const { isDark, toggle } = useTheme();
+  const { isDark, toggle, setTheme } = useTheme();
   const [vatPercent, setVatPercent] = useState('15');
   const [vatDate, setVatDate] = useState('2026-04-01');
   const [companyName, setCompanyName] = useState('PharmaPOS Pharmacy');
   const [companyAddress, setCompanyAddress] = useState('123 Health Street, Colombo 03');
   const [companyPhone, setCompanyPhone] = useState('+94 11 234 5678');
+
+  useEffect(() => {
+    fetchSettings();
+  },[]);
+
+  const fetchSettings = async ()=>{
+    try {
+        const response = await axios.get('settings/all');
+        const setting = response.data[0];
+
+        const settingsData = {
+            theme: setting.theme,
+            company_name: setting.company_name,
+            company_address: setting.company_address,
+            company_phone: setting.company_phone,
+            current_vat_percentage: setting.current_vat_percentage,
+            vat_effective_date: setting.vat_effective_date,
+        };
+
+        const isDarkTheme = setting.theme === 1; // convert 1/0 → true/false
+        setTheme(isDarkTheme); // <-- apply theme globally
+        setCompanyName(settingsData.company_name);
+        setCompanyAddress(settingsData.company_address);
+        setCompanyPhone(settingsData.company_phone);
+        setVatPercent(settingsData.current_vat_percentage);
+        setVatDate(settingsData.vat_effective_date);
+    } catch (error) {
+        console.log(error);
+    // Swal.fire({ icon: "error", title: "Error", text: "Failed to fetch service type data." });
+    }
+  }
+
+  const handleThemeChange = async () => {
+    const newTheme = !isDark;
+    setTheme(newTheme); // update UI immediately
+    try {
+        await axios.post('settings/change_theme', {
+        theme: newTheme ? 1 : 0, // boolean → int
+        });
+    } catch (error) {
+        console.log(error);
+    }
+  };
+
+  const handleCompanyProfile = async ()=>{
+    try {
+        const data = {
+            'company_name':companyName,
+            'company_address':companyAddress,
+            'company_phone':companyPhone,
+        }
+        await axios.post('settings/update_company_profile',data);
+        fetchSettings();
+    } catch (error) {
+        console.log(error);
+    // Swal.fire({ icon: "error", title: "Error", text: "Failed to fetch service type data." });
+    }
+  }
+
+  const handleVATSettings = async ()=>{
+    try {
+        const data = {
+            'current_vat_percentage':vatPercent,
+            'vat_effective_date':vatDate
+        }
+        await axios.post('settings/update_vat_settings',data);
+        fetchSettings();
+    } catch (error) {
+        console.log(error);
+    // Swal.fire({ icon: "error", title: "Error", text: "Failed to fetch service type data." });
+    }
+  }
 
   const roles = [
     { role: 'Owner', permissions: ['Full Access', 'Manage Employees', 'View Reports', 'Settings', 'Billing', 'Products', 'Stock', 'GRN'] },
@@ -31,7 +104,7 @@ function SettingsPage() {
             <p className="text-sm font-medium">Theme</p>
             <p className="text-xs text-muted-foreground">Toggle between light and dark mode</p>
           </div>
-          <button onClick={toggle} className={`relative h-7 w-12 rounded-full transition-colors ${isDark ? 'bg-primary' : 'bg-muted'}`}>
+          <button onClick={handleThemeChange} className={`relative h-7 w-12 rounded-full transition-colors ${isDark ? 'bg-primary' : 'bg-muted'}`}>
             <div className={`absolute top-0.5 h-6 w-6 rounded-full bg-card shadow transition-transform ${isDark ? 'translate-x-5' : 'translate-x-0.5'}`} />
           </button>
         </div>
@@ -61,7 +134,7 @@ function SettingsPage() {
           <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Company Name</label><Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} /></div>
           <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Address</label><Input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} /></div>
           <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Phone</label><Input value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} /></div>
-          <Button>Save Changes</Button>
+          <Button onClick={handleCompanyProfile}>Save Changes</Button>
         </div>
       </div>
 
@@ -72,7 +145,7 @@ function SettingsPage() {
           <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Current VAT %</label><Input type="number" value={vatPercent} onChange={(e) => setVatPercent(e.target.value)} /></div>
           <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Effective Date</label><DatePicker value={vatDate} onChange={setVatDate} className="w-full" /></div>
         </div>
-        <Button className="mt-3">Update VAT</Button>
+        <Button onClick={handleVATSettings} className="mt-3">Update VAT</Button>
       </div>
     </div>
   );
