@@ -56,6 +56,7 @@ function CustomersPage() {
         // Swal.fire({ icon: "success", title: "Success", text: "Service Rule added Successfully!" });
         setShowAdd(false);
         setEditCust(null);
+        
       } catch (error) {
       //         const message = error.response?.data?.detail || error.message || "Failed to update user.";
       // Swal.fire({ icon: "error", title: "Error", text: message });
