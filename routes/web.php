@@ -47,6 +47,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UnitTypeController;
+use App\Http\Controllers\GrnController;
 
 /*
 |--------------------------------------------------------------------------
@@ -80,10 +81,10 @@ Route::prefix('/')->group(function () {
     });
 
     // GRN
-    Route::prefix('grn')->group(function () {
-        Route::get('/', fn() => Inertia::render('GRNPage'));
-        Route::get('history', fn() => Inertia::render('GRNHistoryPage'));
-    });
+    // Route::prefix('grn')->group(function () {
+    //     Route::get('/', fn() => Inertia::render('GRNPage'));
+    //     Route::get('history', fn() => Inertia::render('GRNHistoryPage'));
+    // });
 
     // Inventory
     Route::prefix('/')->group(function () {
@@ -149,6 +150,15 @@ Route::prefix('/')->group(function () {
     Route::prefix('/unit-types')->group(function () {
         Route::get('/all', [UnitTypeController::class, 'all'])->name('unit-types/all');
         Route::post('/store', [UnitTypeController::class, 'store'])->name('unit-types/store');
+    });
+
+    // Grn
+    Route::prefix('/grn')->group(function () {
+        Route::get('/', fn() => Inertia::render('GRNPage'));
+        Route::get('/next-number', [GrnController::class, 'nextNumber']);
+        Route::get('/all', [GrnController::class, 'all']);
+        Route::post('/store', [GrnController::class, 'store']);
+        Route::delete('/delete/{id}', [GrnController::class, 'delete']);
     });
 
     // Finance
