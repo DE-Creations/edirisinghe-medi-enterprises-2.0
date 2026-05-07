@@ -56,12 +56,21 @@ function EmployeesPage() {
                 // axios.get('/employees/roles'),
                 axios.get('/employees/next-number'),
             ]);
+            console.log('First employee:', empRes.data[0]);
             setEmployees(empRes.data);
             // setRoles(roleRes.data);
             setNextEmpNo(nextRes.data.employee_number);
         } catch (error: any) {
             console.log('Fetch error:', error.response?.data);
         }
+    };
+
+    // Helper to safely get role string
+    const getRoleLabel = (role: any): string => {
+        if (!role) return '—';
+        if (typeof role === 'string') return role;
+        if (typeof role === 'object' && role.value) return role.value; // enum object
+        return String(role);
     };
 
     const filtered = employees.filter((e) =>
@@ -84,7 +93,11 @@ function EmployeesPage() {
     };
 
     const openEdit = (emp: Employee) => {
-        setForm({ ...emp, password: '' });
+        setForm({
+            ...emp,
+            role: getRoleLabel(emp.role) as 'owner' | 'admin' | 'cashier',
+            password: '',
+        });
         setEditEmp(emp);
     };
 
@@ -180,7 +193,7 @@ function EmployeesPage() {
                                     </td>
                                     <td className="px-4 py-3">
                                         <span className="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium capitalize">
-                                            {emp.role}
+                                            {getRoleLabel(emp.role)}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-right">
@@ -267,7 +280,7 @@ function EmployeesPage() {
                             <p className="text-xs font-medium text-muted-foreground">Role</p>
                             <Combobox
                                 options={roleOptions}
-                                value={form.role || ''}
+                                value={getRoleLabel(form.role) || ''}
                                 onValueChange={(v) => setForm({ ...form, role: v as 'owner' | 'admin' | 'cashier' })}
                                 placeholder="Select role..."
                                 searchPlaceholder="Search roles..."
