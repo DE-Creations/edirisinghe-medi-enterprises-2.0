@@ -4,13 +4,17 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes; 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;  
+use Illuminate\Database\Eloquent\Relations\HasMany; 
+use App\Enums\UserRole;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -27,7 +31,7 @@ class User extends Authenticatable
         'designation', 
         'nic', 
         'hiring_date', 
-        'role_id', 
+        'role', 
         'status'
     ];
 
@@ -51,15 +55,16 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => UserRole::class,
         ];
     }
 
     public function role(): BelongsTo { 
-        return $this->belongsTo(Role::class); 
+        return $this->belongsTo(Roles::class, 'role_id'); 
     }
 
     public function stockBatches(): HasMany {
-        return $this->hasMany(StockBatch::class , 'user_id');
+        return $this->hasMany(StockBatches::class , 'user_id');
     }
 
     public function invoices(): HasMany {
