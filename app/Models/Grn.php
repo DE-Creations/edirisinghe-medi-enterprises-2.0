@@ -35,6 +35,6 @@ class Grn extends Model
     }
 
     public function user(): BelongsTo {
-        return $this->belongsTo(Employee::class, 'employee_id');
+        return $this->belongsTo(User::class, 'employee_id');
     }
 }
