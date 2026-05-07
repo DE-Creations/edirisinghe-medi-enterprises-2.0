@@ -18,12 +18,12 @@ return new class extends Migration
             $table->string('user_name')->unique();            
             $table->string('password');
             $table->string('mobile');
-            $table->string('address');
+            $table->text('address');
             $table->string('designation');
             $table->string('nic');
             $table->date('hiring_date');
-            $table->string('role_id');
-            $table->string('status')->default(1);
+            $table->enum('role', ['owner', 'admin', 'cashier'])->default('cashier');
+            $table->tinyInteger('status')->default(1);
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->softDeletes();

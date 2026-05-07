@@ -48,6 +48,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UnitTypeController;
 use App\Http\Controllers\GrnController;
+use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -92,11 +93,15 @@ Route::prefix('/')->group(function () {
         Route::get('stock',    fn() => Inertia::render('StockPage'));
     });
 
-    // People
-    Route::prefix('/')->group(function () {
-        Route::get('employees',  fn() => Inertia::render('EmployeesPage'));
-
-        Route::get('suppliers',  fn() => Inertia::render('SuppliersPage'));
+    // Employees
+    Route::prefix('/employees')->group(function () {
+        Route::get('/', fn() => Inertia::render('EmployeesPage'));
+        Route::get('/next-number', [UserController::class, 'nextNumber']);
+        Route::get('/all', [UserController::class, 'all'])->name('employees/all');
+        // Route::get('/roles', [UserController::class, 'roles'])->name('employees/roles');
+        Route::post('/store', [UserController::class, 'store'])->name('employees/store');
+        Route::post('/update/{id}', [UserController::class, 'update'])->name('employees/update');
+        Route::delete('/delete/{id}', [UserController::class, 'delete'])->name('employees/delete');
     });
 
     // customers
