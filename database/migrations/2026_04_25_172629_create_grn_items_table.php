@@ -13,10 +13,14 @@ return new class extends Migration
     {
         Schema::create('grn_items', function (Blueprint $table) {
             $table->id();  
-            $table->string('grn_id'); 
-            $table->string('product_id');
+            $table->foreignId('grn_id')->constrained('grns');      
+            $table->foreignId('product_id')->constrained('products'); 
             $table->integer('quantity');
             $table->decimal('unit_price', 15, 2); 
+            $table->decimal('selling_price', 15, 2);   
+            $table->string('batch_number')->nullable(); 
+            $table->date('expiry_date')->nullable();    
+            $table->date('mfd_date')->nullable();       
             $table->softDeletes();
             $table->timestamps();
         });
