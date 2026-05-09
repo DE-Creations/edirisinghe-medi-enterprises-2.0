@@ -14,11 +14,17 @@ return new class extends Migration
         Schema::create('grns', function (Blueprint $table) {
             $table->id();
             $table->string('grn_number')->unique();
-            $table->decimal('total_amount', 15, 2);
-            $table->dateTime('received_date');
+            $table->foreignId('supplier_id')->constrained('suppliers');
+            $table->foreignId('user_id')->constrained('users');
             $table->string('supplier_invoice_no')->nullable();
-            $table->string('supplier_id');
-            $table->string('user_id');
+            $table->dateTime('received_date');
+            $table->decimal('sub_total', 15, 2)->default(0);
+            $table->decimal('discount', 15, 2)->default(0);
+            $table->decimal('total_amount', 15, 2)->default(0);
+            $table->decimal('paid_amount', 15, 2)->default(0);
+            $table->string('payment_method')->default('cash');
+            $table->string('payment_status')->default('unpaid');
+            $table->text('notes')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });

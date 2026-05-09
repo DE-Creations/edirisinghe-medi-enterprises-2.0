@@ -9,8 +9,7 @@ class CompanyController extends Controller
 {
     public function all() {
 
-        $companies = Companies::all();
-        return response()->json($companies);
+        return response()->json(Companies::all());
     }
 
     public function store(Request $request) {
@@ -21,14 +20,12 @@ class CompanyController extends Controller
             'address' => 'required|string',
         ]);
 
-        $company = Companies::create($validated);
-
-        return response()->json($company, 201);
+        return response()->json(Companies::create($validated), 201);
     }
 
     public function update(Request $request, $id) {
 
-        $company = Companies::findOrFail($id); // 404 if not found
+        $company = Companies::findOrFail($id); 
 
         $validated = $request->validate([
             'name'    => 'required|string|max:255',
@@ -37,15 +34,12 @@ class CompanyController extends Controller
         ]);
 
         $company->update($validated);
-
         return response()->json($company);
     }
 
     public function delete($id) {
 
-        $company = Companies::findOrFail($id);
-        $company->delete(); // Soft delete
-
-        return response()->json(['message' => 'Company deleted']);
+        Companies::findorFail($id)->delete();
+        return response()->json(['message' => 'Deleted']);
     }
 }
