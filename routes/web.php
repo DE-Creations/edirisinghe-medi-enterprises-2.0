@@ -49,6 +49,7 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UnitTypeController;
 use App\Http\Controllers\GrnController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\CompanyProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -146,18 +147,30 @@ Route::prefix('/')->group(function () {
     Route::prefix('/categories')->group(function () {
         Route::get('/all', [CategoryController::class, 'all'])->name('categories/all');
         Route::post('/store', [CategoryController::class, 'store'])->name('categories/store');
+        Route::post('/update/{id}', [CategoryController::class, 'update'])->name('categories/update');
+        Route::delete('/delete/{id}', [CategoryController::class, 'delete'])->name('categories/delete');
     });
 
     // Brands
     Route::prefix('/brands')->group(function () {
         Route::get('/all', [BrandController::class, 'all'])->name('brands/all');
         Route::post('/store', [BrandController::class, 'store'])->name('brands/store');
+        Route::post('/update/{id}', [BrandController::class, 'update'])->name('brands/update');
+        Route::delete('/delete/{id}', [BrandController::class, 'delete'])->name('brands/delete');
     });
 
     // Unit Types
     Route::prefix('/unit-types')->group(function () {
         Route::get('/all', [UnitTypeController::class, 'all'])->name('unit-types/all');
         Route::post('/store', [UnitTypeController::class, 'store'])->name('unit-types/store');
+        Route::post('/update/{id}', [UnitTypeController::class, 'update'])->name('unit-types/update');
+        Route::delete('/delete/{id}', [UnitTypeController::class, 'delete'])->name('unit-types/delete');
+    });
+
+    // Company Profile
+    Route::prefix('/company-profile')->group(function () {
+        Route::get('/', [CompanyProfileController::class, 'show'])->name('company-profile/show');
+        Route::post('/update', [CompanyProfileController::class, 'update'])->name('company-profile/update');
     });
 
     // Grn

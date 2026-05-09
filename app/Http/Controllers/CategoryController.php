@@ -17,7 +17,27 @@ class CategoryController extends Controller
             'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
         ]);
-        $category = Categories::create($validated);
-        return response()->json($category, 201);
+
+        return response()->json(Categories::create($validated), 201);
+    }
+
+    public function update(Request $request, $id) {
+
+        $category = Categories::findOrFail($id);
+
+        $validated = $request->validate([
+            'name'        => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $category->update($validated);
+        return response()->json($category);
+    }
+
+    public function delete($id) {
+        
+        $category = Categories::findOrFail($id);
+        $category->delete();
+        return response()->json(['message' => 'Deleted']);
     }
 }
