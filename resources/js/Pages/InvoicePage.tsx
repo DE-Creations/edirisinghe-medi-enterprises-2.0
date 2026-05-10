@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useState } from 'react';
-import { initialProducts, initialCustomers, nextInvoiceNumber, type InvoiceItem, type Product, type Customer } from '@/data/mockData';
+import React, { useEffect, useRef, useState } from 'react';
+import { initialProducts, initialCustomers, nextInvoiceNumber, type InvoiceItem, type Product} from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
@@ -10,9 +10,12 @@ import { format } from 'date-fns';
 import { FloatingInput } from '@/components/ui/floating-input';
 import SearchBar from '@/components/shared/SearchBar';
 import { ShoppingCart, Plus, Minus, Trash2, Printer, Barcode, Save } from 'lucide-react';
+import axios from 'axios';
+
+interface Customer { id: string; name: string; }
 
 function InvoicePage() {
-  const [invoiceNum] = useState(nextInvoiceNumber());
+  const [invoiceNum,setInvoiceNum]= useState('INV-0001');
   const [invoiceDate, setInvoiceDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [barcodeInput, setBarcodeInput] = useState('');
   const [cart, setCart] = useState<InvoiceItem[]>([]);
@@ -21,9 +24,31 @@ function InvoicePage() {
   const [paidAmount, setPaidAmount] = useState('');
   const [discount, setDiscount] = useState('');
   const [productSearch, setProductSearch] = useState('');
+  const [customers,setCustomers]       = useState<Customer[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const products = initialProducts;
-  const customers = initialCustomers;
+
+  useEffect(() => {
+      fetchFormData();
+      fetchNextNumber();
+      inputRef.current?.focus();
+  }, []);
+
+  const fetchNextNumber = async () => {
+      try {
+          const res = await axios.get('/invoice/next-number');
+          setInvoiceNum(res.data.invoice_number);
+      } catch (e) { console.log(e); }
+  };
+
+  const fetchFormData = async () => {
+      try {
+          const res = await axios.get('/invoice/form-data');
+          setCustomers(res.data.customers);
+        //   setProducts(res.data.products);
+      } catch (error: any) { console.log('Form data error:', error.response?.data); }
+  };
 
   const customerOptions = [
     { value: '', label: 'Walk-in Customer' },
@@ -73,6 +98,7 @@ function InvoicePage() {
             <div className="relative w-3/5">
               <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={inputRef}
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
                 onKeyDown={handleBarcode}
@@ -115,7 +141,7 @@ function InvoicePage() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 shrink-0">
               <ShoppingCart className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">Invoice #{invoiceNum}</span>
+              <span className="text-sm font-semibold">{invoiceNum}</span>
             </div>
             <DatePicker value={invoiceDate} onChange={setInvoiceDate} className="h-8 text-xs px-2" />
           </div>

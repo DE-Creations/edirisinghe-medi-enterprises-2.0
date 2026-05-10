@@ -40,7 +40,7 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\CompanyController;   
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
@@ -50,6 +50,7 @@ use App\Http\Controllers\UnitTypeController;
 use App\Http\Controllers\GrnController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CompanyProfileController;
+use App\Http\Controllers\InvoiceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -79,6 +80,8 @@ Route::prefix('/')->group(function () {
     // Invoice
     Route::prefix('invoice')->group(function () {
         Route::get('/', fn() => Inertia::render('InvoicePage'));
+        Route::get('/next-number', [InvoiceController::class, 'nextNumber']);
+        Route::get('/form-data',   [InvoiceController::class, 'formData'])->name('invoice/form_data');
         Route::get('history', fn() => Inertia::render('InvoiceHistoryPage'));
     });
 
@@ -135,7 +138,7 @@ Route::prefix('/')->group(function () {
     });
 
     // Products
-    Route::prefix('/products')->group(function(){
+    Route::prefix('/products')->group(function () {
         Route::get('/', fn() => Inertia::render('ProductsPage'));
         Route::get('/all', [ProductController::class, 'all'])->name('products/all');
         Route::post('/store', [ProductController::class, 'store'])->name('products/store');
