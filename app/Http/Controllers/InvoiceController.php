@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customers;
 use App\Models\Invoice;
+use App\Models\Product;
 use Illuminate\Http\Request;
 
 class InvoiceController extends Controller
@@ -21,12 +22,13 @@ class InvoiceController extends Controller
     {
         try {
             $customers = Customers::all(['id', 'name']);
-            // $products = Product::with(['brand', 'category'])
-            //     ->withSum('stockBatches', 'current_quantity')
-            //     ->get();
+            // get available stock products
+            $products = Product::with(['brand', 'category'])
+                ->withSum('stockBatches', 'current_quantity')
+                ->get();
             return response()->json([
                 'customers' => $customers,
-                // 'products' => $products
+                'products' => $products
             ]);
         } catch (\Exception $e) {
             return response()->json([

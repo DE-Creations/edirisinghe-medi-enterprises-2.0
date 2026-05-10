@@ -11,6 +11,7 @@ import { FloatingInput } from '@/components/ui/floating-input';
 import SearchBar from '@/components/shared/SearchBar';
 import { ShoppingCart, Plus, Minus, Trash2, Printer, Barcode, Save } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 interface Customer { id: string; name: string; }
 
@@ -24,7 +25,8 @@ function InvoicePage() {
   const [paidAmount, setPaidAmount] = useState('');
   const [discount, setDiscount] = useState('');
   const [productSearch, setProductSearch] = useState('');
-  const [customers,setCustomers]       = useState<Customer[]>([]);
+  const [customers,setCustomers] = useState<Customer[]>([]);
+  const [saving,setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const products = initialProducts;
@@ -87,6 +89,54 @@ function InvoicePage() {
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
     p.barcode.includes(productSearch)
   );
+
+  const handleSave = async () => {
+    if (!selectedCustomer) { toast.error('Please select a customer.'); return; }
+    if (cart.length === 0) { toast.error('Please add at least one product.'); return; }
+
+    setSaving(true);
+    const toastId = toast.loading('Saving Invoice...');
+
+    try {
+        await axios.post('/invoice/store', {
+            supplier_id:         Number(selectedCustomer),
+            // supplier_invoice_no: invoiceNo || null,
+            received_date:       invoiceDate,
+            // sub_total:           subTotal,
+            discount:            Number(discount || 0),
+            total_amount:        discountedTotal,
+            paid_amount:         Number(paidAmount || 0),
+            payment_method:      paymentMethod,
+            // items: items.map((i) => ({
+            //     product_id:    i.productId,
+            //     quantity:      i.qty,
+            //     unit_price:    i.unitPrice,
+            //     selling_price: i.sellingPrice,
+            //     batch_number:  i.batchNumber || null,
+            //     expiry_date:   i.expiryDate  || null,
+            //     mfd_date:      i.mfdDate     || null,
+            // })),
+        });
+
+        toast.success('Invoice saved successfully!', { id: toastId });
+
+        // Reset form
+        // setItems([]);
+        setSelectedCustomer('');
+        // setInvoiceNo('');
+        setDiscount('');
+        setPaidAmount('');
+        setPaymentMethod('cash');
+        await fetchNextNumber(); // get new Invoice number
+
+    } catch (error: any) {
+        const msg = error.response?.data?.message || 'Failed to save Invoice.';
+        toast.error(msg, { id: toastId });
+        console.log(error.response?.data);
+    } finally {
+        setSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-8rem)] animate-fade-in">
@@ -242,7 +292,7 @@ function InvoicePage() {
           </div>
 
           <div className="flex gap-2">
-            <Button className="flex-1 gap-2 bg-blue-600 hover:bg-blue-700 text-white" disabled={cart.length === 0}>
+            <Button onClick={handleSave} className="flex-1 gap-2 bg-blue-600 hover:bg-blue-700 text-white" disabled={cart.length === 0}>
               <Save className="h-4 w-4" /> Save
             </Button>
             <Button className="flex-1 gap-2" disabled={cart.length === 0}>
