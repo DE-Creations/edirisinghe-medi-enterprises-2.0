@@ -36,16 +36,11 @@ class Product extends Model
     }
 
     // Get all stock batches for this product
-    public function batches(): HasMany {
+    public function stockBatches(): HasMany {
         return $this->hasMany(StockBatches::class , 'product_id');
     }
 
     public function grnItems(): HasMany {
         return $this->hasMany(Grn_Items::class, 'product_id');
     }
-
-    // A helper to get total current stock across all batches
-    // public function getTotalStockAttribute() {
-    //     return $this->batches()->sum('current_quantity');
-    // }
 }

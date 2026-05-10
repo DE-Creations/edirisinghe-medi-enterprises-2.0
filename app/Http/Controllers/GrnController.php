@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Grn;
-use App\Models\GrnItem;
-use App\Models\StockBatch;
+use App\Models\Grn_items;
+use App\Models\StockBatches;
 use App\Models\Product;
 use App\Models\Suppliers;
 use Illuminate\Http\Request;
