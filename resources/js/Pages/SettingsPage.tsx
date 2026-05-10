@@ -821,6 +821,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { Sun, Moon, Shield, Building, Receipt, Plus, Edit, Trash2, Search } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 import axios from 'axios';
 
 interface Category  { id: number; name: string; description?: string; }
@@ -1156,7 +1157,6 @@ function SettingsPage() {
         fetchCrudData();
     }, []);
 
-    // ✅ Fetch company profile and populate inputs
     const fetchCompanyProfile = async () => {
         try {
             const res = await axios.get('/company-profile');
@@ -1201,7 +1201,6 @@ function SettingsPage() {
         catch (e) { console.log(e); }
     };
 
-    // ✅ Save and re-fetch to update inputs
     const handleCompanyProfile = async () => {
         try {
             await axios.post('/company-profile/update', {
@@ -1210,7 +1209,8 @@ function SettingsPage() {
                 tin_number:    companyTIN,
                 phone_number:  companyPhone,
             });
-            await fetchCompanyProfile(); // ✅ re-fetch to confirm saved data
+            await fetchCompanyProfile(); 
+            toast.success('Company profile saved!');
         } catch (e) { console.log(e); }
     };
 

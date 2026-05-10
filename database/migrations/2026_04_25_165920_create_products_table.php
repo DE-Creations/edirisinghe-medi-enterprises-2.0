@@ -17,9 +17,9 @@ return new class extends Migration
             $table->string('sku')->unique();
             $table->string('barcode_value')->unique();
             $table->integer('reorder_level');
-            $table->foreignId('category_id')->constrained('categories');  
-            $table->foreignId('unit_type_id')->constrained('unit_types'); 
-            $table->foreignId('brand_id')->constrained('brands');         
+            $table->string('category_id');  
+            $table->string('unit_type_id'); 
+            $table->string('brand_id');         
             $table->tinyInteger('status')->default(1);
             $table->softDeletes();
             $table->timestamps();
