@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('grns', function (Blueprint $table) {
             $table->id();
             $table->string('grn_number')->unique();
-            $table->foreignId('supplier_id')->constrained('suppliers');
-            $table->foreignId('user_id')->constrained('users');
+            $table->string('supplier_id');
+            $table->string('user_id');
             $table->string('supplier_invoice_no')->nullable();
             $table->dateTime('received_date');
             $table->decimal('sub_total', 15, 2)->default(0);

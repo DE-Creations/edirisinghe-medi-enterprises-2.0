@@ -20,9 +20,9 @@ return new class extends Migration
             $table->decimal('selling_price', 15, 2);
             $table->integer('initial_quantity');
             $table->integer('current_quantity');
-            $table->foreignId('product_id')->constrained('products'); 
-            $table->foreignId('grn_id')->constrained('grns');         
-            $table->foreignId('user_id')->constrained('users');       
+            $table->string('product_id'); 
+            $table->string('grn_id');         
+            $table->string('user_id');       
             $table->softDeletes();
             $table->timestamps();
         });

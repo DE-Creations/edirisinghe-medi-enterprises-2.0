@@ -9,20 +9,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class StockBatches extends Model
 {
     protected $fillable = [
-        'product_id',
-        'grn_id',
         'batch_number',
+        'mfd',
         'expiry_date',
-        'mfd_date',
         'purchase_price',
         'selling_price',
         'initial_quantity',
         'current_quantity',
-    ];
-
-    protected $casts = [
-        'expiry_date' => 'date',
-        'mfd_date' => 'date',
+        'product_id',
+        'grn_id',
+        'user_id'
     ];
 
     public function product(): BelongsTo {
@@ -34,7 +30,7 @@ class StockBatches extends Model
     }
 
     public function grn(): BelongsTo {
-        return $this->belongsTo(GRN::class, 'grn_id');
+        return $this->belongsTo(Grn::class, 'grn_id');
     }
 
     public function inventoryAdjustments(): HasMany {

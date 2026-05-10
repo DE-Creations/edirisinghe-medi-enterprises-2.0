@@ -11,10 +11,14 @@ class Grn_items extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'grn_id', 
-        'product_id', 
-        'quantity', 
-        'unit_price'
+        'grn_id',
+        'product_id',
+        'quantity',
+        'unit_price',
+        'selling_price',
+        'batch_number',
+        'expiry_date',
+        'mfd_date'
     ];
 
     public function grn() : BelongsTo {
