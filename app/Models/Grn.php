@@ -27,7 +27,7 @@ class Grn extends Model
     ];
 
     public function items(): HasMany { 
-        return $this->hasMany(GrnItem::class , 'grn_id'); 
+        return $this->hasMany(Grn_items::class , 'grn_id'); 
     }
     
     public function supplier(): BelongsTo { 
@@ -35,6 +35,6 @@ class Grn extends Model
     }
 
     public function user(): BelongsTo {
-        return $this->belongsTo(User::class, 'employee_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

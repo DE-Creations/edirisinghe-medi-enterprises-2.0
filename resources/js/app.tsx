@@ -24,7 +24,7 @@ createInertiaApp({
             <AuthProvider>
               <TooltipProvider>
                 <Toaster />
-                <Sonner />
+                <Sonner position="top-right" richColors />
                 <App {...props} />
               </TooltipProvider>
             </AuthProvider>

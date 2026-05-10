@@ -176,11 +176,14 @@ Route::prefix('/')->group(function () {
     // Grn
     Route::prefix('/grn')->group(function () {
         Route::get('/', fn() => Inertia::render('GRNPage'));
-        Route::get('/next-number', [GrnController::class, 'nextNumber']);
-        Route::get('/all', [GrnController::class, 'all']);
-        Route::post('/store', [GrnController::class, 'store']);
-        Route::delete('/delete/{id}', [GrnController::class, 'delete']);
+        Route::get('/next-number', [GrnController::class, 'nextNumber'])->name('grn/next_number');
+        Route::get('/form-data',   [GrnController::class, 'formData'])->name('grn/form_data');
+        Route::get('/all', [GrnController::class, 'all'])->name('grn/all');
+        Route::post('/store', [GrnController::class, 'store'])->name('grn/store');
+        Route::delete('/delete/{id}', [GrnController::class, 'delete'])->name('grn/delete');
     });
+
+    Route::get('/grn-history', fn() => Inertia::render('GRNHistoryPage'));
 
     // Finance
     Route::prefix('/')->group(function () {

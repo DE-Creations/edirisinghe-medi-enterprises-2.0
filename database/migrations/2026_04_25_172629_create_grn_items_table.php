@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('grn_items', function (Blueprint $table) {
             $table->id();  
-            $table->foreignId('grn_id')->constrained('grns');      
-            $table->foreignId('product_id')->constrained('products'); 
+            $table->string('grn_id');      
+            $table->string('product_id'); 
             $table->integer('quantity');
             $table->decimal('unit_price', 15, 2); 
             $table->decimal('selling_price', 15, 2);   
