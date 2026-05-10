@@ -11,10 +11,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
-class GrnController extends Controller {
+class GrnController extends Controller
+{
 
-    public function nextNumber() {
-        
+    public function nextNumber()
+    {
+
         $last = Grn::withTrashed()->latest()->first();
         $next = $last ? ($last->id + 1) : 1;
         return response()->json([
@@ -22,30 +24,34 @@ class GrnController extends Controller {
         ]);
     }
 
-    public function formData() {
-        try{
+    public function formData()
+    {
+        try {
             $suppliers = Suppliers::all(['id', 'name']);
             $products = Product::with(['brand', 'category'])
-            ->withSum('stockBatches', 'current_quantity')
-            ->get();
+                ->withSum('stockBatches', 'current_quantity')
+                ->get();
             return response()->json([
                 'suppliers' => $suppliers,
                 'products' => $products
             ]);
-        } catch (\Exception $e) { return response()->json([
-            'error' => $e->getMessage(),
-            'line'  => $e->getLine(),
-            'file'  => $e->getFile(),
-            ], 500); 
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'line'  => $e->getLine(),
+                'file'  => $e->getFile(),
+            ], 500);
         }
     }
 
-    public function all() {
+    public function all()
+    {
         $grns = Grn::with(['supplier', 'user', 'items.product'])->latest()->get();
         return response()->json($grns);
     }
 
-    public function store(Request $request) {
+    public function store(Request $request)
+    {
 
         $validated = $request->validate([
             'supplier_id'            => 'required|exists:suppliers,id',
@@ -86,7 +92,7 @@ class GrnController extends Controller {
             $grn = Grn::create([
                 'grn_number'          => $grnNum,
                 'supplier_id'         => $validated['supplier_id'],
-                'user_id'             => $userId,           
+                'user_id'             => $userId,
                 'supplier_invoice_no' => $validated['supplier_invoice_no'] ?? null,
                 'received_date'       => $validated['received_date'],
                 'sub_total'           => $validated['sub_total'],
@@ -121,7 +127,7 @@ class GrnController extends Controller {
                     'purchase_price'   => $item['unit_price'],
                     'selling_price'    => $item['selling_price'],
                     'initial_quantity' => $item['quantity'],
-                    'current_quantity' => $item['quantity'], 
+                    'current_quantity' => $item['quantity'],
                 ]);
             }
         });
@@ -129,7 +135,8 @@ class GrnController extends Controller {
         return response()->json(['message' => 'GRN saved successfully'], 201);
     }
 
-    public function delete($id) {
+    public function delete($id)
+    {
 
         $grn = Grn::findOrFail($id);
         $grn->items()->delete();
