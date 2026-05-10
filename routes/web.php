@@ -82,6 +82,7 @@ Route::prefix('/')->group(function () {
         Route::get('/', fn() => Inertia::render('InvoicePage'));
         Route::get('/next-number', [InvoiceController::class, 'nextNumber']);
         Route::get('/form-data',   [InvoiceController::class, 'formData'])->name('invoice/form_data');
+        Route::post('/store', [GrnController::class, 'store']);
         Route::get('history', fn() => Inertia::render('InvoiceHistoryPage'));
     });
 
