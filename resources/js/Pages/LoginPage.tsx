@@ -19,11 +19,23 @@ export default function LoginPage() {
     }
   }, [isAuthenticated]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  // const handleLogin = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setError('');
+
+  //   if (login(username, password)) {
+  //     router.visit('/invoice');
+  //   } else {
+  //     setError('Invalid username or password');
+  //   }
+  // };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (login(username, password)) {
+    const success = await login(username, password); 
+    if (success) {
       router.visit('/invoice');
     } else {
       setError('Invalid username or password');

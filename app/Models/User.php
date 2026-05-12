@@ -9,12 +9,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;  
 use Illuminate\Database\Eloquent\Relations\HasMany; 
-use App\Enums\UserRole;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable, SoftDeletes, HasApiTokens;
 
     /**
      * The attributes that are mass assignable.
@@ -55,12 +55,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            //'role' => UserRole::class,
         ];
-    }
-
-    public function role(): BelongsTo { 
-        return $this->belongsTo(Roles::class, 'role_id'); 
     }
 
     public function stockBatches(): HasMany {
@@ -72,6 +67,6 @@ class User extends Authenticatable
     }
 
     public function grns(): HasMany {
-        return $this->hasMany(GRN::class , 'user_id');
+        return $this->hasMany(Grn::class , 'user_id');
     }
 }
