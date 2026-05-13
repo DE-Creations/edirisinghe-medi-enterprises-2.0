@@ -52,6 +52,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CompanyProfileController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\StockController;
 
 /*
 |--------------------------------------------------------------------------
@@ -185,6 +186,16 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         Route::get('/grn-history', fn() => Inertia::render('GRNHistoryPage'));
+
+        // Stock
+        Route::prefix('/stock')->group(function () {
+            Route::get('/', fn() => Inertia::render('StockPage'));
+            Route::get('/all', [StockController::class, 'all'])->name('stock/all');
+            Route::get('/adjustments/{batchId}', [StockController::class, 'adjustments'])->name('stock/adjustments');
+            Route::post('/opening', [StockController::class, 'openingStock'])->name('stock/opening');
+            Route::post('/adjust/{batchId}', [StockController::class, 'adjust'])->name('stock/adjust');
+            Route::delete('/delete/{id}', [StockController::class, 'delete'])->name('stock/delete');
+        });        
 
         // Finance
         Route::prefix('/')->group(function () {
