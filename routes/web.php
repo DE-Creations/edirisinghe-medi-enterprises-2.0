@@ -48,9 +48,11 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UnitTypeController;
 use App\Http\Controllers\GrnController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CompanyProfileController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\StockController;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,148 +68,156 @@ Route::get('/', fn() => redirect('/invoice'));
 |--------------------------------------------------------------------------
 */
 Route::get('/login', fn() => Inertia::render('LoginPage'))->name('login');
+Route::post('/login', [AuthController::class, 'login']);
 
 /*
 |--------------------------------------------------------------------------
 | App Pages
 |--------------------------------------------------------------------------
 */
-Route::prefix('/')->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
 
-    // Dashboard
-    Route::get('dashboard', fn() => Inertia::render('DashboardPage'));
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me']);
 
-    // Invoice
-    Route::prefix('invoice')->group(function () {
-        Route::get('/', fn() => Inertia::render('InvoicePage'));
-        Route::get('/next-number', [InvoiceController::class, 'nextNumber']);
-        Route::get('/form-data',   [InvoiceController::class, 'formData'])->name('invoice/form_data');
-        Route::post('/store', [GrnController::class, 'store']);
-        Route::get('history', fn() => Inertia::render('InvoiceHistoryPage'));
-    });
-
-    // GRN
-    Route::prefix('/grn')->group(function () {
-        Route::get('/', fn() => Inertia::render('GRNPage'));
-        Route::get('/next-number', [GrnController::class, 'nextNumber']);
-        Route::get('/all', [GrnController::class, 'all']);
-        Route::post('/store', [GrnController::class, 'store']);
-        Route::delete('/delete/{id}', [GrnController::class, 'delete']);
-    });
-
-    // Inventory
     Route::prefix('/')->group(function () {
-        Route::get('products', fn() => Inertia::render('ProductsPage'));
-        Route::get('stock',    fn() => Inertia::render('StockPage'));
-    });
 
-    // Employees
-    Route::prefix('/employees')->group(function () {
-        Route::get('/', fn() => Inertia::render('EmployeesPage'));
-        Route::get('/next-number', [UserController::class, 'nextNumber']);
-        Route::get('/all', [UserController::class, 'all'])->name('employees/all');
-        // Route::get('/roles', [UserController::class, 'roles'])->name('employees/roles');
-        Route::post('/store', [UserController::class, 'store'])->name('employees/store');
-        Route::post('/update/{id}', [UserController::class, 'update'])->name('employees/update');
-        Route::delete('/delete/{id}', [UserController::class, 'delete'])->name('employees/delete');
-    });
+        // Dashboard
+        Route::get('dashboard', fn() => Inertia::render('DashboardPage'));
 
-    // customers
-    Route::prefix('/customers')->group(function () {
-        Route::get('/',  fn() => Inertia::render('CustomersPage'));
-        Route::get('/all', [CustomerController::class, 'all'])->name('customers/all');
-        Route::post('/store', [CustomerController::class, 'store'])->name('customers/store');
-        Route::post('/update/{id}', [CustomerController::class, 'update'])->name('customers/update');
-        Route::delete('/delete/{id}', [CustomerController::class, 'delete'])->name('customers/delete');
-    });
+        // Invoice
+        Route::prefix('invoice')->group(function () {
+            Route::get('/', fn() => Inertia::render('InvoicePage'));
+            Route::get('/next-number', [InvoiceController::class, 'nextNumber']);
+            Route::get('/form-data',   [InvoiceController::class, 'formData'])->name('invoice/form_data');
+            Route::post('/store', [GrnController::class, 'store']);
+            Route::get('history', fn() => Inertia::render('InvoiceHistoryPage'));
+        });
 
-    // companies
-    Route::prefix('/companies')->group(function () {
-        Route::get('/all', [CompanyController::class, 'all'])->name('companies/all');
-        Route::post('/store', [CompanyController::class, 'store'])->name('companies/store');
-        Route::post('/update/{id}', [CompanyController::class, 'update'])->name('companies/update');
-        Route::delete('/delete/{id}', [CompanyController::class, 'delete'])->name('companies/delete');
-    });
+        // Inventory
+        Route::prefix('/')->group(function () {
+            Route::get('products', fn() => Inertia::render('ProductsPage'));
+            Route::get('stock',    fn() => Inertia::render('StockPage'));
+        });
 
-    // suppliers
-    Route::prefix('/suppliers')->group(function () {
-        Route::get('/', fn() => Inertia::render('SuppliersPage'));
-        Route::get('/all', [SupplierController::class, 'all'])->name('suppliers/all');
-        Route::post('/store', [SupplierController::class, 'store'])->name('suppliers/store');
-        Route::post('/update/{id}', [SupplierController::class, 'update'])->name('suppliers/update');
-        Route::delete('/delete/{id}', [SupplierController::class, 'delete'])->name('suppliers/delete');
-    });
+        // Employees
+        Route::prefix('/employees')->group(function () {
+            Route::get('/', fn() => Inertia::render('EmployeesPage'));
+            Route::get('/next-number', [UserController::class, 'nextNumber'])->name('employees/next_number');
+            Route::get('/all', [UserController::class, 'all'])->name('employees/all');
+            Route::post('/store', [UserController::class, 'store'])->name('employees/store');
+            Route::post('/update/{id}', [UserController::class, 'update'])->name('employees/update');
+            Route::delete('/delete/{id}', [UserController::class, 'delete'])->name('employees/delete');
+        });
 
-    // Products
-    Route::prefix('/products')->group(function () {
-        Route::get('/', fn() => Inertia::render('ProductsPage'));
-        Route::get('/all', [ProductController::class, 'all'])->name('products/all');
-        Route::post('/store', [ProductController::class, 'store'])->name('products/store');
-        Route::post('/update/{id}', [ProductController::class, 'update'])->name('products/update');
-        Route::delete('/delete/{id}', [ProductController::class, 'delete'])->name('products/delete');
-    });
+        // customers
+        Route::prefix('/customers')->group(function () {
+            Route::get('/',  fn() => Inertia::render('CustomersPage'));
+            Route::get('/all', [CustomerController::class, 'all'])->name('customers/all');
+            Route::post('/store', [CustomerController::class, 'store'])->name('customers/store');
+            Route::post('/update/{id}', [CustomerController::class, 'update'])->name('customers/update');
+            Route::delete('/delete/{id}', [CustomerController::class, 'delete'])->name('customers/delete');
+        });
 
-    // Categories
-    Route::prefix('/categories')->group(function () {
-        Route::get('/all', [CategoryController::class, 'all'])->name('categories/all');
-        Route::post('/store', [CategoryController::class, 'store'])->name('categories/store');
-        Route::post('/update/{id}', [CategoryController::class, 'update'])->name('categories/update');
-        Route::delete('/delete/{id}', [CategoryController::class, 'delete'])->name('categories/delete');
-    });
+        // companies
+        Route::prefix('/companies')->group(function () {
+            Route::get('/all', [CompanyController::class, 'all'])->name('companies/all');
+            Route::post('/store', [CompanyController::class, 'store'])->name('companies/store');
+            Route::post('/update/{id}', [CompanyController::class, 'update'])->name('companies/update');
+            Route::delete('/delete/{id}', [CompanyController::class, 'delete'])->name('companies/delete');
+        });
 
-    // Brands
-    Route::prefix('/brands')->group(function () {
-        Route::get('/all', [BrandController::class, 'all'])->name('brands/all');
-        Route::post('/store', [BrandController::class, 'store'])->name('brands/store');
-        Route::post('/update/{id}', [BrandController::class, 'update'])->name('brands/update');
-        Route::delete('/delete/{id}', [BrandController::class, 'delete'])->name('brands/delete');
-    });
+        // suppliers
+        Route::prefix('/suppliers')->group(function () {
+            Route::get('/', fn() => Inertia::render('SuppliersPage'));
+            Route::get('/all', [SupplierController::class, 'all'])->name('suppliers/all');
+            Route::post('/store', [SupplierController::class, 'store'])->name('suppliers/store');
+            Route::post('/update/{id}', [SupplierController::class, 'update'])->name('suppliers/update');
+            Route::delete('/delete/{id}', [SupplierController::class, 'delete'])->name('suppliers/delete');
+        });
 
-    // Unit Types
-    Route::prefix('/unit-types')->group(function () {
-        Route::get('/all', [UnitTypeController::class, 'all'])->name('unit-types/all');
-        Route::post('/store', [UnitTypeController::class, 'store'])->name('unit-types/store');
-        Route::post('/update/{id}', [UnitTypeController::class, 'update'])->name('unit-types/update');
-        Route::delete('/delete/{id}', [UnitTypeController::class, 'delete'])->name('unit-types/delete');
-    });
+        // Products
+        Route::prefix('/products')->group(function () {
+            Route::get('/', fn() => Inertia::render('ProductsPage'));
+            Route::get('/all', [ProductController::class, 'all'])->name('products/all');
+            Route::post('/store', [ProductController::class, 'store'])->name('products/store');
+            Route::post('/update/{id}', [ProductController::class, 'update'])->name('products/update');
+            Route::delete('/delete/{id}', [ProductController::class, 'delete'])->name('products/delete');
+        });
 
-    // Company Profile
-    Route::prefix('/company-profile')->group(function () {
-        Route::get('/', [CompanyProfileController::class, 'show'])->name('company-profile/show');
-        Route::post('/update', [CompanyProfileController::class, 'update'])->name('company-profile/update');
-    });
+        // Categories
+        Route::prefix('/categories')->group(function () {
+            Route::get('/all', [CategoryController::class, 'all'])->name('categories/all');
+            Route::post('/store', [CategoryController::class, 'store'])->name('categories/store');
+            Route::post('/update/{id}', [CategoryController::class, 'update'])->name('categories/update');
+            Route::delete('/delete/{id}', [CategoryController::class, 'delete'])->name('categories/delete');
+        });
 
-    // Grn
-    Route::prefix('/grn')->group(function () {
-        Route::get('/', fn() => Inertia::render('GRNPage'));
-        Route::get('/next-number', [GrnController::class, 'nextNumber'])->name('grn/next_number');
-        Route::get('/form-data',   [GrnController::class, 'formData'])->name('grn/form_data');
-        Route::get('/all', [GrnController::class, 'all'])->name('grn/all');
-        Route::post('/store', [GrnController::class, 'store'])->name('grn/store');
-        Route::delete('/delete/{id}', [GrnController::class, 'delete'])->name('grn/delete');
-    });
+        // Brands
+        Route::prefix('/brands')->group(function () {
+            Route::get('/all', [BrandController::class, 'all'])->name('brands/all');
+            Route::post('/store', [BrandController::class, 'store'])->name('brands/store');
+            Route::post('/update/{id}', [BrandController::class, 'update'])->name('brands/update');
+            Route::delete('/delete/{id}', [BrandController::class, 'delete'])->name('brands/delete');
+        });
 
-    Route::get('/grn-history', fn() => Inertia::render('GRNHistoryPage'));
+        // Unit Types
+        Route::prefix('/unit-types')->group(function () {
+            Route::get('/all', [UnitTypeController::class, 'all'])->name('unit-types/all');
+            Route::post('/store', [UnitTypeController::class, 'store'])->name('unit-types/store');
+            Route::post('/update/{id}', [UnitTypeController::class, 'update'])->name('unit-types/update');
+            Route::delete('/delete/{id}', [UnitTypeController::class, 'delete'])->name('unit-types/delete');
+        });
 
-    // Finance
-    Route::prefix('/')->group(function () {
-        Route::get('vat-invoices',  fn() => Inertia::render('VATInvoicesPage'));
-        Route::get('receivables',   fn() => Inertia::render('ReceivablesPage'));
-        Route::get('payables',      fn() => Inertia::render('PayablesPage'));
-    });
+        // Company Profile
+        Route::prefix('/company-profile')->group(function () {
+            Route::get('/', [CompanyProfileController::class, 'show'])->name('company-profile/show');
+            Route::post('/update', [CompanyProfileController::class, 'update'])->name('company-profile/update');
+        });
 
-    // Misc
-    Route::prefix('/')->group(function () {
-        Route::get('reports',  fn() => Inertia::render('ReportsPage'));
-    });
+        // Grn
+        Route::prefix('/grn')->group(function () {
+            Route::get('/', fn() => Inertia::render('GRNPage'));
+            Route::get('/next-number', [GrnController::class, 'nextNumber'])->name('grn/next_number');
+            Route::get('/form-data',   [GrnController::class, 'formData'])->name('grn/form_data');
+            Route::get('/all', [GrnController::class, 'all'])->name('grn/all');
+            Route::post('/store', [GrnController::class, 'store'])->name('grn/store');
+            Route::delete('/delete/{id}', [GrnController::class, 'delete'])->name('grn/delete');
+        });
 
-    // Settings
-    Route::prefix('/settings')->group(function () {
-        Route::get('/', fn() => Inertia::render('SettingsPage'));
-        Route::get('/all', [SettingsController::class, 'all'])->name('settings/all');
-        Route::post('/change_theme', [SettingsController::class, 'change_theme'])->name('settings/change_theme');
-        Route::post('/update_company_profile', [SettingsController::class, 'update_company_profile'])->name('settings/update_company_profile');
-        Route::post('/update_vat_settings', [SettingsController::class, 'update_vat_settings'])->name('settings/update_vat_settings');
+        Route::get('/grn-history', fn() => Inertia::render('GRNHistoryPage'));
+
+        // Stock
+        Route::prefix('/stock')->group(function () {
+            Route::get('/', fn() => Inertia::render('StockPage'));
+            Route::get('/all', [StockController::class, 'all'])->name('stock/all');
+            Route::get('/adjustments/{batchId}', [StockController::class, 'adjustments'])->name('stock/adjustments');
+            Route::post('/opening', [StockController::class, 'openingStock'])->name('stock/opening');
+            Route::post('/adjust/{batchId}', [StockController::class, 'adjust'])->name('stock/adjust');
+            Route::delete('/delete/{id}', [StockController::class, 'delete'])->name('stock/delete');
+        });        
+
+        // Finance
+        Route::prefix('/')->group(function () {
+            Route::get('vat-invoices',  fn() => Inertia::render('VATInvoicesPage'));
+            Route::get('receivables',   fn() => Inertia::render('ReceivablesPage'));
+            Route::get('payables',      fn() => Inertia::render('PayablesPage'));
+        });
+
+        // Misc
+        Route::prefix('/')->group(function () {
+            Route::get('reports',  fn() => Inertia::render('ReportsPage'));
+        });
+
+        // Settings
+        Route::prefix('/settings')->group(function () {
+            Route::get('/', fn() => Inertia::render('SettingsPage'));
+            Route::get('/all', [SettingsController::class, 'all'])->name('settings/all');
+            Route::post('/change_theme', [SettingsController::class, 'change_theme'])->name('settings/change_theme');
+            Route::post('/update_company_profile', [SettingsController::class, 'update_company_profile'])->name('settings/update_company_profile');
+            Route::post('/update_vat_settings', [SettingsController::class, 'update_vat_settings'])->name('settings/update_vat_settings');
+        });
+        Route::fallback(fn() => Inertia::render('NotFound'));
     });
 });
 
@@ -226,4 +236,5 @@ Route::prefix('/')->group(function () {
 | Fallback
 |--------------------------------------------------------------------------
 */
-Route::fallback(fn() => Inertia::render('NotFound'));
+
+

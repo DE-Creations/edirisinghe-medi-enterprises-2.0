@@ -21,7 +21,7 @@ return new class extends Migration
             $table->integer('initial_quantity');
             $table->integer('current_quantity');
             $table->string('product_id'); 
-            $table->string('grn_id');         
+            $table->string('grn_id')->nullable();         
             $table->string('user_id');       
             $table->softDeletes();
             $table->timestamps();

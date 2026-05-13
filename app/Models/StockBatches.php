@@ -5,9 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class StockBatches extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'batch_number',
         'mfd',
@@ -34,7 +37,7 @@ class StockBatches extends Model
     }
 
     public function inventoryAdjustments(): HasMany {
-        return $this->hasMany(InventoryAdjustments::class, 'stock_batch_id');
+        return $this->hasMany(InventoryAdjustment::class, 'stock_batch_id');
     }
 
     public function invoiceItems(): HasMany {

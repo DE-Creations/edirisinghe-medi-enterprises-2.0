@@ -13,10 +13,12 @@ return new class extends Migration
     {
         Schema::create('inventory_adjustments', function (Blueprint $table) {
             $table->id();
-            $table->integer('quantity');
-            $table->string('type');
-            $table->dateTime('date');
             $table->string('stock_batch_id');
+            $table->string('user_id');
+            $table->integer('quantity'); 
+            $table->enum('type', ['sample', 'gift', 'damage', 'expiry', 'correction', 'other']);
+            $table->text('description')->nullable();
+            $table->date('date');
             $table->softDeletes();
             $table->timestamps();
         });

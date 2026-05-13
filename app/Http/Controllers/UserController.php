@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
@@ -11,8 +10,8 @@ class UserController extends Controller
 {
     public function nextNumber() {
 
-        $last = User::withTrashed()->latest()->first();
-        $next = $last ? (intval(substr($last->id, 0)) + 1) : 1;
+        $last = User::withTrashed()->latest('id')->first();
+        $next = $last ? ($last->id + 1) : 1;
         return response()->json([
             'employee_number' => 'EMP-' . str_pad($next, 4, '0', STR_PAD_LEFT)
         ]);
@@ -20,20 +19,15 @@ class UserController extends Controller
 
     public function all() {
 
-        $users = User::with('role')->get();
+        $users = User::all();
         return response()->json($users);
     }
-
-    // public function roles() {
-
-    //     return response()->json(Role::all());
-    // }
 
     public function store(Request $request) {
 
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
-            'email'       => 'required|email|unique:users,email',
+            'email'       => 'nullable|email|unique:users,email',
             'user_name'   => 'required|string|unique:users,user_name',
             'password'    => 'required|string|min:6',
             'mobile'      => 'required|string',
@@ -41,14 +35,12 @@ class UserController extends Controller
             'designation' => 'nullable|string',
             'nic'         => 'required|string',
             'hiring_date' => 'nullable|date',
-            'role'        => 'required|in:' . implode(',', UserRole::values()),
+            'role'        => 'required|in:owner,admin,cashier',
             'status'      => 'sometimes|integer',
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
-
         $user = User::create($validated);
-        $user->load('role');
 
         return response()->json($user, 201);
     }
@@ -59,18 +51,21 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
-            'email'       => 'required|email|unique:users,email,' . $id,
+            'email'       => 'nullable|email|unique:users,email,' . $id,
             'user_name'   => 'required|string|unique:users,user_name,' . $id,
             'mobile'      => 'required|string',
             'address'     => 'required|string',
             'designation' => 'nullable|string',
             'nic'         => 'required|string',
             'hiring_date' => 'nullable|date',
-            'role'        => 'required|in:' . implode(',', UserRole::values()),
+            'role'        => 'required|in:owner,admin,cashier',
             'status'      => 'sometimes|integer',
-            // password optional on update
             'password'    => 'nullable|string|min:6',
         ]);
+
+        if (isset($validated['status']) && $validated['status'] == 0) {
+            $user->tokens()->delete(); 
+        }
 
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
@@ -79,13 +74,13 @@ class UserController extends Controller
         }
 
         $user->update($validated);
-        $user->load('role');
-
         return response()->json($user);
     }
 
     public function delete($id) {
+
         $user = User::findOrFail($id);
+        $user->tokens()->delete();
         $user->delete();
         return response()->json(['message' => 'Employee deleted']);
     }
