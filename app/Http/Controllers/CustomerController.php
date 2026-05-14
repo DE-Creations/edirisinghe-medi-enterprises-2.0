@@ -53,7 +53,7 @@ class CustomerController extends Controller
 
     public function delete($id) {
 
-        Customer::findOrFail($id)->delete();
+        Customers::findOrFail($id)->delete();
         return response()->json(['message' => 'Customer deleted']);
     }
 }
