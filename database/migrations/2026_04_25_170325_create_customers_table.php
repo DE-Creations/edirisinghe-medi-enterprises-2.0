@@ -15,9 +15,17 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('contact_no');
-            $table->text('address');
-            $table->decimal('balance_amount')->default(0);
-            $table->decimal('credit_limit')->default(0);
+            $table->text('address')->nullable();
+            $table->tinyInteger('is_vat')->default(0);
+
+            // 1 = vat customer
+            $table->string('company_name')->nullable();
+            $table->string('nick_name')->nullable();
+            $table->text('company_address')->nullable();
+            $table->string('company_contact')->nullable();
+            $table->string('vat_number')->nullable();
+            
+            $table->decimal('balance_amount', 15, 2)->default(0);
             $table->softDeletes();
             $table->timestamps();
         });

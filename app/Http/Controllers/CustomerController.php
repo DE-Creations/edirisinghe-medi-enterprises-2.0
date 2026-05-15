@@ -7,72 +7,53 @@ use App\Models\Customers;
 
 class CustomerController extends Controller
 {
-    public function all()
-    {
-        $all_customers = Customers::get();
-        return response()->json($all_customers);
-        // dd(response()->json($all_customers));
+    public function all() {
+        return response()->json(Customers::all());
     }
 
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
+
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'address' => 'required|string',
-            'mobile' => 'nullable|string|max:20',
-            'isVat' => 'nullable'
+            'name'            => 'required|string|max:255',
+            'contact_no'      => 'required|string',
+            'address'         => 'nullable|string',
+            'is_vat'          => 'required|boolean',
+
+            // Only required if is_vat = true
+            'company_name'    => 'nullable|required_if:is_vat,true|string',
+            'nick_name'       => 'nullable|string',
+            'company_address' => 'nullable|required_if:is_vat,true|string',
+            'company_contact' => 'nullable|string',
+            'vat_number'      => 'nullable|required_if:is_vat,true|string',
         ]);
 
-        $data = [
-            'name' => $request['name'],
-            'contact_no' => $request['mobile'],
-            'address' => $request['address'],
-        ];
-
-        $created_customer = Customers::create($data);
-        $created_customer->save();
-
-        return response()->json($created_customer, 201);
-
-        //if ($request->has('isVat')) {
-        //     $customer = \App\Models\Customer::find($request->id);
-        //     if (!$customer) {
-        //         return response()->json(['message' => 'Customer not found'], 404);
-        //     }
-        //     $customer->update($validated);
-        // } else {
-
-        // return response()->json($customer, 201);
-        // }
+        $customer = Customers::create($validated);
+        return response()->json($customer, 201);
     }
 
-    public function update(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'address' => 'required|string',
-            'mobile' => 'nullable|string|max:20',
-            'isVat' => 'nullable'
-        ]);
+    public function update(Request $request, $id) {
 
         $customer = Customers::findOrFail($id);
 
-        $customer->update([
-            'name' => $validated['name'],
-            'contact_no' => $validated['mobile'], // or fix naming
-            'address' => $validated['address'],
+        $validated = $request->validate([
+            'name'            => 'required|string|max:255',
+            'contact_no'      => 'required|string',
+            'address'         => 'nullable|string',
+            'is_vat'          => 'required|boolean',
+            'company_name'    => 'nullable|required_if:is_vat,true|string',
+            'nick_name'       => 'nullable|string',
+            'company_address' => 'nullable|required_if:is_vat,true|string',
+            'company_contact' => 'nullable|string',
+            'vat_number'      => 'nullable|required_if:is_vat,true|string',
         ]);
 
-        return response()->json($customer, 200);
+        $customer->update($validated);
+        return response()->json($customer);
     }
 
-    public function delete($id)
-    {
-        $customer = Customers::findOrFail($id);
-        $customer->delete();
+    public function delete($id) {
 
-        return response()->json([
-            'message' => 'Customer deleted successfully'
-        ], 200);
+        Customers::findOrFail($id)->delete();
+        return response()->json(['message' => 'Customer deleted']);
     }
 }
