@@ -88,11 +88,14 @@ Route::middleware('auth:sanctum')->group(function () {
         // Invoice
         Route::prefix('invoice')->group(function () {
             Route::get('/', fn() => Inertia::render('InvoicePage'));
-            Route::get('/next-number', [InvoiceController::class, 'nextNumber']);
+            Route::get('/next-number', [InvoiceController::class, 'nextNumber'])->name('invoice/next_number');
             Route::get('/form-data',   [InvoiceController::class, 'formData'])->name('invoice/form_data');
-            Route::post('/store', [GrnController::class, 'store']);
-            Route::get('history', fn() => Inertia::render('InvoiceHistoryPage'));
+            Route::get('/all', [InvoiceController::class, 'all'])->name('invoice/all');
+            Route::post('/store', [InvoiceController::class, 'store'])->name('invoice/store');
+            Route::delete('/delete/{id}', [InvoiceController::class, 'delete'])->name('invoice/delete');
         });
+
+        Route::get('/invoice-history', fn() => Inertia::render('InvoiceHistoryPage'));
 
         // Inventory
         Route::prefix('/')->group(function () {
@@ -217,6 +220,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/update_company_profile', [SettingsController::class, 'update_company_profile'])->name('settings/update_company_profile');
             Route::post('/update_vat_settings', [SettingsController::class, 'update_vat_settings'])->name('settings/update_vat_settings');
         });
+
         Route::fallback(fn() => Inertia::render('NotFound'));
     });
 });

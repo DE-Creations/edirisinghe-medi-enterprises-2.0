@@ -10,7 +10,7 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // ✅ Create first owner account
+        // Create first owner account
         User::create([
             'name'        => 'Amindu Dulanjana',
             'email'       => 'amindu@test.com',
