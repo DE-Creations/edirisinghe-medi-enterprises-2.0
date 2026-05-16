@@ -53,6 +53,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CompanyProfileController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\PayableController;
+use App\Http\Controllers\ReceivableController;
 
 /*
 |--------------------------------------------------------------------------
@@ -198,13 +200,32 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/opening', [StockController::class, 'openingStock'])->name('stock/opening');
             Route::post('/adjust/{batchId}', [StockController::class, 'adjust'])->name('stock/adjust');
             Route::delete('/delete/{id}', [StockController::class, 'delete'])->name('stock/delete');
+        });      
+        
+        // Payables
+        Route::prefix('/payables')->group(function () {
+            Route::get('/', fn() => Inertia::render('PayablesPage'));
+            Route::get('/grns', [PayableController::class, 'grns'])->name('payables/grns');
+            Route::get('/expenses', [PayableController::class, 'expenses'])->name('payables/expenses');
+            Route::get('/history/{type}/{id}', [PayableController::class, 'paymentHistory'])->name('payables/history');
+            Route::post('/expense/store', [PayableController::class, 'storeExpense'])->name('payables/expense/store');
+            Route::delete('/expense/{id}', [PayableController::class, 'deleteExpense'])->name('payables/expense/delete');
+            Route::post('/payment', [PayableController::class, 'recordPayment'])->name('payables/payment');
         });        
+
+        // Receivables
+        Route::prefix('/receivables')->group(function () {
+            Route::get('/', fn() => Inertia::render('ReceivablesPage'));
+            Route::get('/invoices', [ReceivableController::class, 'invoices'])->name('receivables/invoices');
+            Route::get('/history/{id}', [ReceivableController::class, 'paymentHistory'])->name('receivables/history');
+            Route::post('/payment', [ReceivableController::class, 'recordPayment'])->name('receivables/payment');
+        });    
 
         // Finance
         Route::prefix('/')->group(function () {
             Route::get('vat-invoices',  fn() => Inertia::render('VATInvoicesPage'));
-            Route::get('receivables',   fn() => Inertia::render('ReceivablesPage'));
-            Route::get('payables',      fn() => Inertia::render('PayablesPage'));
+            //Route::get('receivables',   fn() => Inertia::render('ReceivablesPage'));
+            //Route::get('payables',      fn() => Inertia::render('PayablesPage'));
         });
 
         // Misc
