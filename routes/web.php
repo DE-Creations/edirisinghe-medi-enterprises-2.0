@@ -55,6 +55,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\PayableController;
 use App\Http\Controllers\ReceivableController;
+use App\Http\Controllers\DashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -85,7 +86,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('/')->group(function () {
 
         // Dashboard
-        Route::get('dashboard', fn() => Inertia::render('DashboardPage'));
+        Route::get('/dashboard', fn() => Inertia::render('DashboardPage'));
+        Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
 
         // Invoice
         Route::prefix('invoice')->group(function () {
