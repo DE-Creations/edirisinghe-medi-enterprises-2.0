@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('invoice_items', function (Blueprint $table) {
             $table->id();
-            $table->integer('quantity');
-            $table->decimal('unit_price', 15, 2);
             $table->string('invoice_id');
             $table->string('stock_batch_id');
+            $table->integer('quantity');
+            $table->decimal('unit_price', 15, 2);
             $table->softDeletes();
             $table->timestamps();
         });

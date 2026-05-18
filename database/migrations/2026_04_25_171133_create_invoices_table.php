@@ -13,14 +13,16 @@ return new class extends Migration
     {
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
-            $table->string('invoice_no')->unique();
-            $table->decimal('sub_total', 15, 2);
-            $table->decimal('discount' , 15 , 2)->default(0);
-            $table->decimal('grand_total', 15, 2);
-            $table->decimal('paid_amount', 15, 2);
-            $table->string('status')->default(1); // active, cancelled, etc.
+            $table->string('invoice_number')->unique();
             $table->string('customer_id');
             $table->string('user_id');
+            $table->date('invoice_date');
+            $table->decimal('sub_total', 15, 2)->default(0);
+            $table->decimal('discount', 15, 2)->default(0);
+            $table->decimal('grand_total', 15, 2)->default(0);
+            $table->decimal('paid_amount', 15, 2)->default(0);
+            $table->string('payment_method')->default('cash');
+            $table->string('status')->default('paid'); // paid/partial/unpaid
             $table->softDeletes();
             $table->timestamps();
         });

@@ -8,8 +8,9 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function login(Request $request) {
 
+    public function login(Request $request) {
+    try {
         $request->validate([
             'user_name' => 'required|string',
             'password'  => 'required|string',
@@ -45,6 +46,13 @@ class AuthController extends Controller
                 'status'      => $user->status,
             ]
         ]);
+    }catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'line'  => $e->getLine(),
+            'file'  => $e->getFile(),
+        ], 500);
+    }
     }
 
     public function logout(Request $request) {

@@ -13,11 +13,12 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->string('type'); // Cash, Cheque, Bank Transfer
+            $table->string('reference_type'); // 'grn' or 'expense' or 'invoice'
+            $table->unsignedBigInteger('reference_id');
             $table->decimal('amount', 15, 2);
-            $table->dateTime('transaction_date');
-            $table->string('cheque_number')->nullable();
-            $table->string('invoice_id');
+            $table->date('date');
+            $table->text('notes')->nullable();
+            $table->string('user_id');
             $table->softDeletes();
             $table->timestamps();
         });
