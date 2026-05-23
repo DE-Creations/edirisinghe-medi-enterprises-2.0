@@ -17,20 +17,22 @@ createInertiaApp({
   resolve: (name) =>
     resolvePageComponent(`./Pages/${name}.tsx`, import.meta.glob("./Pages/**/*.tsx")),
   setup({ el, App, props }) {
+    const auth = (props.initialPage?.props as any)?.auth;
+
     createRoot(el).render(
-      <React.StrictMode>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <AuthProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner position="top-right" richColors />
-                <App {...props} />
-              </TooltipProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </React.StrictMode>
+      //<React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider auth={auth}>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner position="top-right" richColors />
+              <App {...props} />
+            </TooltipProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+      // </React.StrictMode>
     );
   },
   progress: {
