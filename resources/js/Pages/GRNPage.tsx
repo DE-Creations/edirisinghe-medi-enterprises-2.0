@@ -603,25 +603,25 @@ interface Product {
 }
 
 interface GrnItem {
-    productId:    number;
-    name:         string;
-    qty:          number;
-    unitPrice:    number;
+    productId: number;
+    name: string;
+    qty: number;
+    unitPrice: number;
     sellingPrice: number;
-    batchNumber:  string;
-    expiryDate:   string;
-    mfdDate:      string;
+    batchNumber: string;
+    expiryDate: string;
+    mfdDate: string;
 }
 
 // New product form
 interface NewProductForm {
-    generic_name:  string;
+    generic_name: string;
     barcode_value: string;
-    sku:           string;
+    sku: string;
     reorder_level: string;
-    category_id:   string;
-    unit_type_id:  string;
-    brand_id:      string;
+    category_id: string;
+    unit_type_id: string;
+    brand_id: string;
 }
 
 const spinnerOff = '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
@@ -629,37 +629,36 @@ const spinnerOff = '[appearance:textfield] [&::-webkit-outer-spin-button]:appear
 function GRNPage() {
     const { user } = useAuth();
 
-    const [grnNum,        setGrnNum]        = useState('GRN-0001');
-    const [grnDate,       setGrnDate]       = useState(format(new Date(), 'yyyy-MM-dd'));
-    const [supplierId,    setSupplierId]    = useState('');
-    const [invoiceNo,     setInvoiceNo]     = useState('');
-    const [barcodeInput,  setBarcodeInput]  = useState('');
+    const [grnNum, setGrnNum] = useState('GRN-0001');
+    const [supplierId, setSupplierId] = useState('');
+    const [invoiceNo, setInvoiceNo] = useState('');
+    const [barcodeInput, setBarcodeInput] = useState('');
     const [productSearch, setProductSearch] = useState('');
-    const [items,         setItems]         = useState<GrnItem[]>([]);
-    const [paidAmount,    setPaidAmount]    = useState('');
-    const [discount,      setDiscount]      = useState('');
+    const [items, setItems] = useState<GrnItem[]>([]);
+    const [paidAmount, setPaidAmount] = useState('');
+    const [discount, setDiscount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'cheque'>('cash');
-    const [suppliers,     setSuppliers]     = useState<Supplier[]>([]);
-    const [products,      setProducts]      = useState<Product[]>([]);
-    const [saving,        setSaving]        = useState(false);
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [saving, setSaving] = useState(false);
     const [showProductSearch, setShowProductSearch] = useState(false);
 
     // New product registration dialog
-    const [showNewProduct,  setShowNewProduct]  = useState(false);
-    const [newProductForm,  setNewProductForm]  = useState<NewProductForm>({
+    const [showNewProduct, setShowNewProduct] = useState(false);
+    const [newProductForm, setNewProductForm] = useState<NewProductForm>({
         generic_name: '', barcode_value: '', sku: '',
         reorder_level: '10', category_id: '', unit_type_id: '', brand_id: '',
     });
-    const [categories,  setCategories]  = useState<{id:number;name:string}[]>([]);
-    const [brands,      setBrands]      = useState<{id:number;name:string}[]>([]);
-    const [unitTypes,   setUnitTypes]   = useState<{id:number;name:string}[]>([]);
+    const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+    const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
+    const [unitTypes, setUnitTypes] = useState<{ id: number; name: string }[]>([]);
 
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Totals
-    const subTotal        = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+    const subTotal = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
     const discountedTotal = Math.max(0, subTotal - Number(discount || 0));
-    const balance         = discountedTotal - Number(paidAmount || 0);
+    const balance = discountedTotal - Number(paidAmount || 0);
 
     useEffect(() => {
         fetchFormData();
@@ -711,14 +710,14 @@ function GRNPage() {
                     ? { ...i, qty: i.qty + 1 } : i);
             }
             return [...prev, {
-                productId:    p.id,
-                name:         p.generic_name,
-                qty:          1,
-                unitPrice:    0,
+                productId: p.id,
+                name: p.generic_name,
+                qty: 1,
+                unitPrice: 0,
                 sellingPrice: 0,
-                batchNumber:  generateBatchNumber(), // ✅ auto generate
-                expiryDate:   '',
-                mfdDate:      '',
+                batchNumber: generateBatchNumber(), // ✅ auto generate
+                expiryDate: '',
+                mfdDate: '',
             }];
         });
         setShowProductSearch(false);
@@ -756,14 +755,14 @@ function GRNPage() {
         }
         try {
             const res = await axios.post('/products/store', {
-                generic_name:  newProductForm.generic_name,
+                generic_name: newProductForm.generic_name,
                 barcode_value: newProductForm.barcode_value,
-                sku:           newProductForm.sku || `SKU-${Date.now()}`,
+                sku: newProductForm.sku || `SKU-${Date.now()}`,
                 reorder_level: Number(newProductForm.reorder_level || 10),
-                category_id:   Number(newProductForm.category_id),
-                unit_type_id:  Number(newProductForm.unit_type_id),
-                brand_id:      Number(newProductForm.brand_id),
-                status:        1,
+                category_id: Number(newProductForm.category_id),
+                unit_type_id: Number(newProductForm.unit_type_id),
+                brand_id: Number(newProductForm.brand_id),
+                status: 1,
             });
 
             // Add to products list and immediately add to GRN items
@@ -799,23 +798,31 @@ function GRNPage() {
         const toastId = toast.loading('Saving GRN...');
 
         try {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const receivedDateTime = `${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
             const res = await axios.post('/grn/store', {
-                supplier_id:         Number(supplierId),
+                supplier_id: Number(supplierId),
                 supplier_invoice_no: invoiceNo || null,
-                received_date:       grnDate,
-                sub_total:           subTotal,
-                discount:            Number(discount || 0),
-                total_amount:        discountedTotal,
-                paid_amount:         Number(paidAmount || 0),
-                payment_method:      paymentMethod,
+                received_date: receivedDateTime,
+                sub_total: subTotal,
+                discount: Number(discount || 0),
+                total_amount: discountedTotal,
+                paid_amount: Number(paidAmount || 0),
+                payment_method: paymentMethod,
                 items: items.map((i) => ({
-                    product_id:    i.productId,
-                    quantity:      i.qty,
-                    unit_price:    i.unitPrice,
+                    product_id: i.productId,
+                    quantity: i.qty,
+                    unit_price: i.unitPrice,
                     selling_price: i.sellingPrice,
-                    batch_number:  i.batchNumber || null,
-                    expiry_date:   i.expiryDate  || null,
-                    mfd_date:      i.mfdDate     || null,
+                    batch_number: i.batchNumber || null,
+                    expiry_date: i.expiryDate || null,
+                    mfd_date: i.mfdDate || null,
                 })),
             });
 
@@ -824,17 +831,17 @@ function GRNPage() {
             if (print) {
                 // ✅ Open print dialog with GRN data
                 printGRN({
-                    grn_number:   grnNum,
-                    received_date: grnDate,
-                    supplier:     suppliers.find((s) => String(s.id) === supplierId)?.name || '',
-                    invoice_no:   invoiceNo,
+                    grn_number: grnNum,
+                    received_date: receivedDateTime,
+                    supplier: suppliers.find((s) => String(s.id) === supplierId)?.name || '',
+                    invoice_no: invoiceNo,
                     items,
-                    sub_total:    subTotal,
-                    discount:     Number(discount || 0),
+                    sub_total: subTotal,
+                    discount: Number(discount || 0),
                     total_amount: discountedTotal,
-                    paid_amount:  Number(paidAmount || 0),
+                    paid_amount: Number(paidAmount || 0),
                     payment_method: paymentMethod,
-                    received_by:  user?.name || '',
+                    received_by: user?.name || '',
                 });
             }
 
@@ -1003,23 +1010,19 @@ function GRNPage() {
         printWindow.document.close();
     };
 
-    const categoryOptions  = categories.map((c) => ({ value: String(c.id), label: c.name }));
-    const brandOptions     = brands.map((b) => ({ value: String(b.id), label: b.name }));
-    const unitTypeOptions  = unitTypes.map((u) => ({ value: String(u.id), label: u.name }));
+    const categoryOptions = categories.map((c) => ({ value: String(c.id), label: c.name }));
+    const brandOptions = brands.map((b) => ({ value: String(b.id), label: b.name }));
+    const unitTypeOptions = unitTypes.map((u) => ({ value: String(u.id), label: u.name }));
 
     return (
         <div className="max-w-6xl mx-auto space-y-4 animate-fade-in">
             <div className="bg-card rounded-xl border border-border p-5">
 
                 {/* Header Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">GRN Number</label>
                         <Input value={grnNum} readOnly className="bg-muted font-mono" />
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Date</label>
-                        <DatePicker value={grnDate} onChange={setGrnDate} className="w-full" />
                     </div>
                     <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Supplier</label>
