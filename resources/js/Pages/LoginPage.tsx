@@ -132,7 +132,19 @@ export default function LoginPage() {
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/login'); // ✅ submits to Laravel, Laravel redirects to /invoice
+
+        // Submit via Inertia but force a full page navigation on success.
+        // This ensures the root app and layout re-initialize (avoids layout
+        // quirks that sometimes appear when Inertia replaces the page
+        // without a full reload).
+        post('/login', {
+            onSuccess: () => {
+                const redirectTo = sessionStorage.getItem('redirect_after_login') || '/invoice';
+                sessionStorage.removeItem('redirect_after_login');
+                // Use location.replace to avoid keeping the login page in history.
+                window.location.replace(redirectTo);
+            },
+        });
     };
 
     return (
