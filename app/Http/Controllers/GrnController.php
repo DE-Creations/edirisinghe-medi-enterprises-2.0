@@ -24,25 +24,47 @@ class GrnController extends Controller
         ]);
     }
 
-    public function formData()
-    {
+    // public function formData()
+    // {
+    //     try {
+    //         $suppliers = Suppliers::all(['id', 'name']);
+    //         $products = Product::with(['brand', 'category'])
+    //             ->withSum('stockBatches', 'current_quantity')
+    //             ->get();
+    //         return response()->json([
+    //             'suppliers' => $suppliers,
+    //             'products' => $products
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'error' => $e->getMessage(),
+    //             'line'  => $e->getLine(),
+    //             'file'  => $e->getFile(),
+    //         ], 500);
+    //     }
+    // }
+
+    public function formData() {
+
         try {
-            $suppliers = Suppliers::all(['id', 'name']);
-            $products = Product::with(['brand', 'category'])
-                ->withSum('stockBatches', 'current_quantity')
-                ->get();
+            $suppliers = \App\Models\Suppliers::all(['id', 'name']);
+            $products  = Product::with(['brand', 'category'])->get();
+            $categories = \App\Models\Categories::all(['id', 'name']);
+            $brands     = \App\Models\Brands::all(['id', 'name']);
+            $unitTypes  = \App\Models\UnitTypes::all(['id', 'name']);
+
             return response()->json([
-                'suppliers' => $suppliers,
-                'products' => $products
+                'suppliers'  => $suppliers,
+                'products'   => $products,
+                'categories' => $categories,
+                'brands'     => $brands,
+                'unit_types' => $unitTypes,
             ]);
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => $e->getMessage(),
-                'line'  => $e->getLine(),
-                'file'  => $e->getFile(),
-            ], 500);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
 
     public function all()
     {

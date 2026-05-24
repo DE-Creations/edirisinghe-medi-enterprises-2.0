@@ -1,56 +1,20 @@
 <?php
 
-// use Illuminate\Support\Facades\Route;
-// use Inertia\Inertia;
-// use App\Http\Controllers\VatInvoiceController;
-
-// Route::get('/', fn () => redirect('/invoice'));
-// Route::get('/login', fn () => Inertia::render('LoginPage'))->name('login');
-
-// $pages = [
-//     '/dashboard' => 'DashboardPage',
-//     '/invoice' => 'InvoicePage',
-//     '/invoice-history' => 'InvoiceHistoryPage',
-//     '/grn' => 'GRNPage',
-//     '/grn-history' => 'GRNHistoryPage',
-//     '/products' => 'ProductsPage',
-//     '/stock' => 'StockPage',
-//     '/employees' => 'EmployeesPage',
-//     '/customers' => 'CustomersPage',
-//     '/suppliers' => 'SuppliersPage',
-//     '/vat-invoices' => 'VATInvoicesPage',
-//     '/receivables' => 'ReceivablesPage',
-//     '/payables' => 'PayablesPage',
-//     '/reports' => 'ReportsPage',
-//     '/settings' => 'SettingsPage',
-// ];
-
-// foreach ($pages as $uri => $page) {
-//     Route::get($uri, fn () => Inertia::render($page));
-// }
-
-// // VAT Invoice PDF (CSRF exempt — pure view render, no state mutation)
-// Route::post('/vat-invoices/pdf', [VatInvoiceController::class, 'generatePdf']);
-// Route::post('/vat-invoices/pdf/history', [VatInvoiceController::class, 'viewHistoryPdf']);
-
-// Route::fallback(fn () => Inertia::render('NotFound'));
-
-
-
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
-use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UnitTypeController;
-use App\Http\Controllers\GrnController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\CompanyProfileController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\GrnController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\PayableController;
@@ -62,206 +26,167 @@ use App\Http\Controllers\DashboardController;
 | Root Redirect
 |--------------------------------------------------------------------------
 */
-
 Route::get('/', fn() => redirect('/invoice'));
 
 /*
 |--------------------------------------------------------------------------
-| Auth Routes
+| Auth Routes (Public)
 |--------------------------------------------------------------------------
 */
 Route::get('/login', fn() => Inertia::render('LoginPage'))->name('login');
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 /*
 |--------------------------------------------------------------------------
-| App Pages
+| Protected Routes
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth')->group(function () {
 
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/me', [AuthController::class, 'me']);
+    // ── Dashboard ──────────────────────────────────────────────────────────
+    Route::get('/dashboard', fn() => Inertia::render('DashboardPage'));
+    Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
 
-    Route::prefix('/')->group(function () {
-
-        // Dashboard
-        Route::get('/dashboard', fn() => Inertia::render('DashboardPage'));
-        Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
-
-        // Invoice
-        Route::prefix('invoice')->group(function () {
-            Route::get('/', fn() => Inertia::render('InvoicePage'));
-            Route::get('/next-number', [InvoiceController::class, 'nextNumber'])->name('invoice/next_number');
-            Route::get('/form-data',   [InvoiceController::class, 'formData'])->name('invoice/form_data');
-            Route::get('/all', [InvoiceController::class, 'all'])->name('invoice/all');
-            Route::post('/store', [InvoiceController::class, 'store'])->name('invoice/store');
-            Route::delete('/delete/{id}', [InvoiceController::class, 'delete'])->name('invoice/delete');
-        });
-
-        Route::get('/invoice-history', fn() => Inertia::render('InvoiceHistoryPage'));
-
-        // Inventory
-        Route::prefix('/')->group(function () {
-            Route::get('products', fn() => Inertia::render('ProductsPage'));
-            Route::get('stock',    fn() => Inertia::render('StockPage'));
-        });
-
-        // Employees
-        Route::prefix('/employees')->group(function () {
-            Route::get('/', fn() => Inertia::render('EmployeesPage'));
-            Route::get('/next-number', [UserController::class, 'nextNumber'])->name('employees/next_number');
-            Route::get('/all', [UserController::class, 'all'])->name('employees/all');
-            Route::post('/store', [UserController::class, 'store'])->name('employees/store');
-            Route::post('/update/{id}', [UserController::class, 'update'])->name('employees/update');
-            Route::delete('/delete/{id}', [UserController::class, 'delete'])->name('employees/delete');
-        });
-
-        // customers
-        Route::prefix('/customers')->group(function () {
-            Route::get('/',  fn() => Inertia::render('CustomersPage'));
-            Route::get('/all', [CustomerController::class, 'all'])->name('customers/all');
-            Route::post('/store', [CustomerController::class, 'store'])->name('customers/store');
-            Route::post('/update/{id}', [CustomerController::class, 'update'])->name('customers/update');
-            Route::delete('/delete/{id}', [CustomerController::class, 'delete'])->name('customers/delete');
-        });
-
-        // companies
-        Route::prefix('/companies')->group(function () {
-            Route::get('/all', [CompanyController::class, 'all'])->name('companies/all');
-            Route::post('/store', [CompanyController::class, 'store'])->name('companies/store');
-            Route::post('/update/{id}', [CompanyController::class, 'update'])->name('companies/update');
-            Route::delete('/delete/{id}', [CompanyController::class, 'delete'])->name('companies/delete');
-        });
-
-        // suppliers
-        Route::prefix('/suppliers')->group(function () {
-            Route::get('/', fn() => Inertia::render('SuppliersPage'));
-            Route::get('/all', [SupplierController::class, 'all'])->name('suppliers/all');
-            Route::post('/store', [SupplierController::class, 'store'])->name('suppliers/store');
-            Route::post('/update/{id}', [SupplierController::class, 'update'])->name('suppliers/update');
-            Route::delete('/delete/{id}', [SupplierController::class, 'delete'])->name('suppliers/delete');
-        });
-
-        // Products
-        Route::prefix('/products')->group(function () {
-            Route::get('/', fn() => Inertia::render('ProductsPage'));
-            Route::get('/all', [ProductController::class, 'all'])->name('products/all');
-            Route::post('/store', [ProductController::class, 'store'])->name('products/store');
-            Route::post('/update/{id}', [ProductController::class, 'update'])->name('products/update');
-            Route::delete('/delete/{id}', [ProductController::class, 'delete'])->name('products/delete');
-        });
-
-        // Categories
-        Route::prefix('/categories')->group(function () {
-            Route::get('/all', [CategoryController::class, 'all'])->name('categories/all');
-            Route::post('/store', [CategoryController::class, 'store'])->name('categories/store');
-            Route::post('/update/{id}', [CategoryController::class, 'update'])->name('categories/update');
-            Route::delete('/delete/{id}', [CategoryController::class, 'delete'])->name('categories/delete');
-        });
-
-        // Brands
-        Route::prefix('/brands')->group(function () {
-            Route::get('/all', [BrandController::class, 'all'])->name('brands/all');
-            Route::post('/store', [BrandController::class, 'store'])->name('brands/store');
-            Route::post('/update/{id}', [BrandController::class, 'update'])->name('brands/update');
-            Route::delete('/delete/{id}', [BrandController::class, 'delete'])->name('brands/delete');
-        });
-
-        // Unit Types
-        Route::prefix('/unit-types')->group(function () {
-            Route::get('/all', [UnitTypeController::class, 'all'])->name('unit-types/all');
-            Route::post('/store', [UnitTypeController::class, 'store'])->name('unit-types/store');
-            Route::post('/update/{id}', [UnitTypeController::class, 'update'])->name('unit-types/update');
-            Route::delete('/delete/{id}', [UnitTypeController::class, 'delete'])->name('unit-types/delete');
-        });
-
-        // Company Profile
-        Route::prefix('/company-profile')->group(function () {
-            Route::get('/', [CompanyProfileController::class, 'show'])->name('company-profile/show');
-            Route::post('/update', [CompanyProfileController::class, 'update'])->name('company-profile/update');
-        });
-
-        // Grn
-        Route::prefix('/grn')->group(function () {
-            Route::get('/', fn() => Inertia::render('GRNPage'));
-            Route::get('/next-number', [GrnController::class, 'nextNumber'])->name('grn/next_number');
-            Route::get('/form-data',   [GrnController::class, 'formData'])->name('grn/form_data');
-            Route::get('/all', [GrnController::class, 'all'])->name('grn/all');
-            Route::post('/store', [GrnController::class, 'store'])->name('grn/store');
-            Route::delete('/delete/{id}', [GrnController::class, 'delete'])->name('grn/delete');
-        });
-
-        Route::get('/grn-history', fn() => Inertia::render('GRNHistoryPage'));
-
-        // Stock
-        Route::prefix('/stock')->group(function () {
-            Route::get('/', fn() => Inertia::render('StockPage'));
-            Route::get('/all', [StockController::class, 'all'])->name('stock/all');
-            Route::get('/adjustments/{batchId}', [StockController::class, 'adjustments'])->name('stock/adjustments');
-            Route::post('/opening', [StockController::class, 'openingStock'])->name('stock/opening');
-            Route::post('/adjust/{batchId}', [StockController::class, 'adjust'])->name('stock/adjust');
-            Route::delete('/delete/{id}', [StockController::class, 'delete'])->name('stock/delete');
-        });      
-        
-        // Payables
-        Route::prefix('/payables')->group(function () {
-            Route::get('/', fn() => Inertia::render('PayablesPage'));
-            Route::get('/grns', [PayableController::class, 'grns'])->name('payables/grns');
-            Route::get('/expenses', [PayableController::class, 'expenses'])->name('payables/expenses');
-            Route::get('/history/{type}/{id}', [PayableController::class, 'paymentHistory'])->name('payables/history');
-            Route::post('/expense/store', [PayableController::class, 'storeExpense'])->name('payables/expense/store');
-            Route::delete('/expense/{id}', [PayableController::class, 'deleteExpense'])->name('payables/expense/delete');
-            Route::post('/payment', [PayableController::class, 'recordPayment'])->name('payables/payment');
-        });        
-
-        // Receivables
-        Route::prefix('/receivables')->group(function () {
-            Route::get('/', fn() => Inertia::render('ReceivablesPage'));
-            Route::get('/invoices', [ReceivableController::class, 'invoices'])->name('receivables/invoices');
-            Route::get('/history/{id}', [ReceivableController::class, 'paymentHistory'])->name('receivables/history');
-            Route::post('/payment', [ReceivableController::class, 'recordPayment'])->name('receivables/payment');
-        });    
-
-        // Finance
-        Route::prefix('/')->group(function () {
-            Route::get('vat-invoices',  fn() => Inertia::render('VATInvoicesPage'));
-            //Route::get('receivables',   fn() => Inertia::render('ReceivablesPage'));
-            //Route::get('payables',      fn() => Inertia::render('PayablesPage'));
-        });
-
-        // Misc
-        Route::prefix('/')->group(function () {
-            Route::get('reports',  fn() => Inertia::render('ReportsPage'));
-        });
-
-        // Settings
-        Route::prefix('/settings')->group(function () {
-            Route::get('/', fn() => Inertia::render('SettingsPage'));
-            Route::get('/all', [SettingsController::class, 'all'])->name('settings/all');
-            Route::post('/change_theme', [SettingsController::class, 'change_theme'])->name('settings/change_theme');
-            Route::post('/update_company_profile', [SettingsController::class, 'update_company_profile'])->name('settings/update_company_profile');
-            Route::post('/update_vat_settings', [SettingsController::class, 'update_vat_settings'])->name('settings/update_vat_settings');
-        });
-
-        Route::fallback(fn() => Inertia::render('NotFound'));
+    // ── Invoice ────────────────────────────────────────────────────────────
+    Route::get('/invoice', fn() => Inertia::render('InvoicePage'));
+    Route::get('/invoice-history', fn() => Inertia::render('InvoiceHistoryPage'));
+    Route::prefix('/invoice')->group(function () {
+        Route::get('/next-number',    [InvoiceController::class, 'nextNumber']);
+        Route::get('/form-data',      [InvoiceController::class, 'formData']);
+        Route::get('/all',            [InvoiceController::class, 'all']);
+        Route::post('/store',         [InvoiceController::class, 'store']);
+        Route::delete('/delete/{id}', [InvoiceController::class, 'delete']);
     });
+
+    // ── GRN ────────────────────────────────────────────────────────────────
+    Route::get('/grn', fn() => Inertia::render('GRNPage'));
+    Route::get('/grn-history', fn() => Inertia::render('GRNHistoryPage'));
+    Route::prefix('/grn')->group(function () {
+        Route::get('/next-number',    [GrnController::class, 'nextNumber']);
+        Route::get('/form-data',      [GrnController::class, 'formData']);
+        Route::get('/all',            [GrnController::class, 'all']);
+        Route::post('/store',         [GrnController::class, 'store']);
+        Route::delete('/delete/{id}', [GrnController::class, 'delete']);
+    });
+
+    // ── Products ───────────────────────────────────────────────────────────
+    Route::get('/products', fn() => Inertia::render('ProductsPage'));
+    Route::prefix('/products')->group(function () {
+        Route::get('/all',            [ProductController::class, 'all']);
+        Route::post('/store',         [ProductController::class, 'store']);
+        Route::post('/update/{id}',   [ProductController::class, 'update']);
+        Route::delete('/delete/{id}', [ProductController::class, 'delete']);
+    });
+
+    // ── Stock ──────────────────────────────────────────────────────────────
+    Route::get('/stock', fn() => Inertia::render('StockPage'));
+    Route::prefix('/stock')->group(function () {
+        Route::get('/all',                    [StockController::class, 'all']);
+        Route::get('/adjustments/{batchId}',  [StockController::class, 'adjustments']);
+        Route::post('/opening',               [StockController::class, 'openingStock']);
+        Route::post('/adjust/{batchId}',      [StockController::class, 'adjust']);
+        Route::delete('/delete/{id}',         [StockController::class, 'delete']);
+    });
+
+    // ── Employees ──────────────────────────────────────────────────────────
+    Route::get('/employees', fn() => Inertia::render('EmployeesPage'));
+    Route::prefix('/employees')->group(function () {
+        Route::get('/next-number',    [UserController::class, 'nextNumber']);
+        Route::get('/all',            [UserController::class, 'all']);
+        Route::post('/store',         [UserController::class, 'store']);
+        Route::post('/update/{id}',   [UserController::class, 'update']);
+        Route::delete('/delete/{id}', [UserController::class, 'delete']);
+    });
+
+    // ── Customers ──────────────────────────────────────────────────────────
+    Route::get('/customers', fn() => Inertia::render('CustomersPage'));
+    Route::prefix('/customers')->group(function () {
+        Route::get('/all',            [CustomerController::class, 'all']);
+        Route::post('/store',         [CustomerController::class, 'store']);
+        Route::post('/update/{id}',   [CustomerController::class, 'update']);
+        Route::delete('/delete/{id}', [CustomerController::class, 'delete']);
+    });
+
+    // ── Suppliers ──────────────────────────────────────────────────────────
+    Route::get('/suppliers', fn() => Inertia::render('SuppliersPage'));
+    Route::prefix('/suppliers')->group(function () {
+        Route::get('/all',            [SupplierController::class, 'all']);
+        Route::post('/store',         [SupplierController::class, 'store']);
+        Route::post('/update/{id}',   [SupplierController::class, 'update']);
+        Route::delete('/delete/{id}', [SupplierController::class, 'delete']);
+    });
+
+    // ── Companies ──────────────────────────────────────────────────────────
+    Route::prefix('/companies')->group(function () {
+        Route::get('/all',            [CompanyController::class, 'all']);
+        Route::post('/store',         [CompanyController::class, 'store']);
+        Route::post('/update/{id}',   [CompanyController::class, 'update']);
+        Route::delete('/delete/{id}', [CompanyController::class, 'delete']);
+    });
+
+    // ── Categories ─────────────────────────────────────────────────────────
+    Route::prefix('/categories')->group(function () {
+        Route::get('/all',            [CategoryController::class, 'all']);
+        Route::post('/store',         [CategoryController::class, 'store']);
+        Route::post('/update/{id}',   [CategoryController::class, 'update']);
+        Route::delete('/delete/{id}', [CategoryController::class, 'delete']);
+    });
+
+    // ── Brands ─────────────────────────────────────────────────────────────
+    Route::prefix('/brands')->group(function () {
+        Route::get('/all',            [BrandController::class, 'all']);
+        Route::post('/store',         [BrandController::class, 'store']);
+        Route::post('/update/{id}',   [BrandController::class, 'update']);
+        Route::delete('/delete/{id}', [BrandController::class, 'delete']);
+    });
+
+    // ── Unit Types ─────────────────────────────────────────────────────────
+    Route::prefix('/unit-types')->group(function () {
+        Route::get('/all',            [UnitTypeController::class, 'all']);
+        Route::post('/store',         [UnitTypeController::class, 'store']);
+        Route::post('/update/{id}',   [UnitTypeController::class, 'update']);
+        Route::delete('/delete/{id}', [UnitTypeController::class, 'delete']);
+    });
+
+    // ── Company Profile ────────────────────────────────────────────────────
+    Route::prefix('/company-profile')->group(function () {
+        Route::get('/',        [CompanyProfileController::class, 'show']);
+        Route::post('/update', [CompanyProfileController::class, 'update']);
+    });
+
+    // ── Settings ───────────────────────────────────────────────────────────
+    Route::get('/settings', fn() => Inertia::render('SettingsPage'));
+    Route::prefix('/settings')->group(function () {
+        Route::get('/all',                    [SettingsController::class, 'all']);
+        Route::post('/change_theme',          [SettingsController::class, 'change_theme']);
+        Route::post('/update_company_profile',[SettingsController::class, 'update_company_profile']);
+        Route::post('/update_vat_settings',   [SettingsController::class, 'update_vat_settings']);
+    });
+
+    // ── Payables ───────────────────────────────────────────────────────────
+    Route::get('/payables', fn() => Inertia::render('PayablesPage'));
+    Route::prefix('/payables')->group(function () {
+        Route::get('/grns',                   [PayableController::class, 'grns']);
+        Route::get('/expenses',               [PayableController::class, 'expenses']);
+        Route::get('/history/{type}/{id}',    [PayableController::class, 'paymentHistory']);
+        Route::post('/expense/store',         [PayableController::class, 'storeExpense']);
+        Route::delete('/expense/{id}',        [PayableController::class, 'deleteExpense']);
+        Route::post('/payment',               [PayableController::class, 'recordPayment']);
+    });
+
+    // ── Receivables ────────────────────────────────────────────────────────
+    Route::get('/receivables', fn() => Inertia::render('ReceivablesPage'));
+    Route::prefix('/receivables')->group(function () {
+        Route::get('/invoices',        [ReceivableController::class, 'invoices']);
+        Route::get('/history/{id}',    [ReceivableController::class, 'paymentHistory']);
+        Route::post('/payment',        [ReceivableController::class, 'recordPayment']);
+    });
+
+    // ── Other Pages ────────────────────────────────────────────────────────
+    Route::get('/vat-invoices', fn() => Inertia::render('VATInvoicesPage'));
+    Route::get('/reports',      fn() => Inertia::render('ReportsPage'));
+
+    // ── Fallback ───────────────────────────────────────────────────────────
+    Route::fallback(fn() => Inertia::render('NotFound'));
 });
-
-/*
-|--------------------------------------------------------------------------
-| VAT Invoice PDF Routes (CSRF Exempt — pure view render, no state mutation)
-|--------------------------------------------------------------------------
-*/
-// Route::prefix('vat-invoices/pdf')->group(function () {
-//     Route::post('/',        [VatInvoiceController::class, 'generatePdf']);
-//     Route::post('history',  [VatInvoiceController::class, 'viewHistoryPdf']);
-// });
-
-/*
-|--------------------------------------------------------------------------
-| Fallback
-|--------------------------------------------------------------------------
-*/
-
-

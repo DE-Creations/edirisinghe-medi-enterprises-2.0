@@ -51,8 +51,9 @@ function SidebarContent({ collapsed, filteredNav, onNavClick }: SidebarContentPr
   const pathname = url.split('?')[0];
 
   const handleLogout = () => {
-    logout();
-    router.visit('/login');
+    // logout();
+    // router.visit('/login');
+    router.post('/logout');
   };
 
   return (
