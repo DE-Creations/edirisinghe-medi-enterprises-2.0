@@ -750,7 +750,6 @@ const productOptions = products.map((p) => ({
             </thead>
             <tbody>
               {filtered.map((s) => {
-                const isLow = s.current_quantity <= s.product.reorder_level;
                 const isExpired = s.expiry_date && new Date(s.expiry_date) < new Date();
                 return (
                   <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
@@ -779,11 +778,6 @@ const productOptions = products.map((p) => ({
                       <div className="flex flex-col items-center gap-0.5">
                         <span className="text-sm font-bold">{s.current_quantity}</span>
                         <span className="text-xs text-muted-foreground">/ {s.initial_quantity}</span>
-                        {isLow && (
-                          <span className="inline-flex items-center gap-0.5 text-xs text-destructive">
-                            <AlertTriangle className="h-3 w-3" /> Low
-                          </span>
-                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-right">

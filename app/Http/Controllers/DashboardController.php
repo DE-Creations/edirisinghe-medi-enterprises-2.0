@@ -54,17 +54,15 @@ class DashboardController extends Controller
             $q->where('current_quantity', '>', 0);
         })->count();
 
-        // Low stock - batches where current_quantity <= product reorder_level
-        $lowStockItems = StockBatches::with('product')
-            ->where('current_quantity', '>', 0)
-            ->whereHas('product', function ($q) {
-                $q->whereColumn('reorder_level', '>=', 'current_quantity');  // reorder_level >= current_quantity from stock_batches... we need to join
-            })
+        // Low stock - products whose total current_quantity across all batches is below reorder_level
+        $lowStockProducts = Product::withSum('stockBatches', 'current_quantity')
             ->get()
-            ->filter(function ($batch) {
-                return $batch->current_quantity <= $batch->product?->reorder_level;
+            ->filter(function ($p) {
+                return ($p->stock_batches_sum_current_quantity ?? 0) < $p->reorder_level;
             })
-            ->count();
+            ->values();
+
+        $lowStockItems = $lowStockProducts->count();
 
         // ── Recent Sales ──
         $recentSales = Invoice::with('customer')
@@ -82,23 +80,13 @@ class DashboardController extends Controller
             });
 
         // ── Low Stock Alerts ──
-        $lowStockAlerts = StockBatches::with('product')
-            ->where('current_quantity', '>', 0)
-            ->get()
-            ->filter(function ($batch) {
-                return $batch->current_quantity <= ($batch->product?->reorder_level ?? 0);
-            })
-            ->take(5)
-            ->map(function ($batch) {
-                return [
-                    'name'          => $batch->product?->generic_name,
-                    'stock'         => $batch->current_quantity,
-                    'reorder_level' => $batch->product?->reorder_level,
-                    'batch_number'  => $batch->batch_number,
-                    'expiry_date'   => $batch->expiry_date,
-                ];
-            })
-            ->values();
+        $lowStockAlerts = $lowStockProducts->take(5)->map(function ($p) {
+            return [
+                'name'          => $p->generic_name,
+                'stock'         => (int) ($p->stock_batches_sum_current_quantity ?? 0),
+                'reorder_level' => $p->reorder_level,
+            ];
+        })->values();
 
         // ── Monthly Chart (last 12 months) ──
         $monthlyData = [];

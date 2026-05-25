@@ -25,9 +25,14 @@ class InvoiceController extends Controller
         try {
 
             $customers = Customers::all(['id', 'name', 'is_vat']);
-            
-            // Get products that have stock available
-            $stock = StockBatches::with(['product.brand', 'product.category'])
+
+            // Get only needed columns; select on the base model, constrain relation columns
+            $stock = StockBatches::with([
+                    'product:id,generic_name,barcode_value,brand_id,category_id',
+                    'product.brand:id,name',
+                    'product.category:id,name',
+                ])
+                ->select('id', 'product_id', 'selling_price', 'current_quantity', 'expiry_date', 'batch_number')
                 ->where('current_quantity', '>', 0)
                 ->get()
                 ->map(function ($batch) {
@@ -45,9 +50,14 @@ class InvoiceController extends Controller
                     ];
                 });
 
+            // Include next invoice number so InvoicePage needs only one request on load
+            $last       = Invoice::withTrashed()->latest()->first();
+            $nextNum    = 'INV-' . str_pad(($last ? $last->id + 1 : 1), 4, '0', STR_PAD_LEFT);
+
             return response()->json([
-                'customers' => $customers,
-                'stock'     => $stock,
+                'customers'    => $customers,
+                'stock'        => $stock,
+                'next_number'  => $nextNum,
             ]);
 
         } catch (\Exception $e) {
@@ -55,12 +65,30 @@ class InvoiceController extends Controller
         }
     }
 
-    public function all() {
+    public function all(Request $request) {
 
-        $invoices = Invoice::with(['customer', 'user', 'items.stockBatch.product'])
-            ->latest()
-            ->get();
-        return response()->json($invoices);
+        $query = Invoice::with([
+                'customer:id,name',
+                'user:id,name',
+                'items:id,invoice_id,stock_batch_id,quantity,unit_price',
+                'items.stockBatch:id,batch_number,product_id',
+                'items.stockBatch.product:id,generic_name',
+            ])
+            ->latest();
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice_number', 'like', "%{$search}%")
+                  ->orWhereHas('customer', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('invoice_date', $request->date);
+        }
+
+        return response()->json($query->paginate(50));
     }
 
     public function store(Request $request) {

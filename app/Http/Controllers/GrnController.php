@@ -47,18 +47,28 @@ class GrnController extends Controller
     public function formData() {
 
         try {
-            $suppliers = \App\Models\Suppliers::all(['id', 'name']);
-            $products  = Product::with(['brand', 'category'])->get();
+            $suppliers  = \App\Models\Suppliers::all(['id', 'name']);
+
+            // Only load columns the GRN product-search panel actually uses
+            $products   = Product::with(['brand:id,name'])
+                ->select('id', 'generic_name', 'barcode_value', 'sku', 'brand_id')
+                ->get();
+
             $categories = \App\Models\Categories::all(['id', 'name']);
             $brands     = \App\Models\Brands::all(['id', 'name']);
             $unitTypes  = \App\Models\UnitTypes::all(['id', 'name']);
 
+            // Include next GRN number so GRNPage needs only one request on load
+            $last       = Grn::withTrashed()->latest()->first();
+            $nextNum    = 'GRN-' . str_pad(($last ? $last->id + 1 : 1), 4, '0', STR_PAD_LEFT);
+
             return response()->json([
-                'suppliers'  => $suppliers,
-                'products'   => $products,
-                'categories' => $categories,
-                'brands'     => $brands,
-                'unit_types' => $unitTypes,
+                'suppliers'   => $suppliers,
+                'products'    => $products,
+                'categories'  => $categories,
+                'brands'      => $brands,
+                'unit_types'  => $unitTypes,
+                'next_number' => $nextNum,
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -66,10 +76,29 @@ class GrnController extends Controller
     }
 
 
-    public function all()
+    public function all(Request $request)
     {
-        $grns = Grn::with(['supplier', 'user', 'items.product'])->latest()->get();
-        return response()->json($grns);
+        $query = Grn::with([
+                'supplier:id,name',
+                'user:id,name',
+                'items:id,grn_id,product_id,quantity,unit_price,selling_price,batch_number,expiry_date',
+                'items.product:id,generic_name',
+            ])
+            ->latest();
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('grn_number', 'like', "%{$search}%")
+                  ->orWhereHas('supplier', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('received_date', $request->date);
+        }
+
+        return response()->json($query->paginate(50));
     }
 
     public function store(Request $request)

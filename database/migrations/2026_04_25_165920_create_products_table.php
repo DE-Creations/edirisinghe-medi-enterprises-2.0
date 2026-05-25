@@ -17,12 +17,16 @@ return new class extends Migration
             $table->string('sku')->unique();
             $table->string('barcode_value')->unique();
             $table->integer('reorder_level');
-            $table->string('category_id');  
-            $table->string('unit_type_id'); 
-            $table->string('brand_id');         
+            $table->unsignedBigInteger('category_id');  
+            $table->unsignedBigInteger('unit_type_id');             
+            $table->unsignedBigInteger('brand_id');         
             $table->tinyInteger('status')->default(1);
             $table->softDeletes();
             $table->timestamps();
+
+            $table->foreign('category_id')->references('id')->on('categories')->onDelete('cascade');
+            $table->foreign('unit_type_id')->references('id')->on('unit_types')->onDelete('cascade');
+            $table->foreign('brand_id')->references('id')->on('brands')->onDelete('cascade');
         });
     }
 

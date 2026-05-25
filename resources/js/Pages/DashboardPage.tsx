@@ -290,8 +290,6 @@ interface LowStockAlert {
     name:          string;
     stock:         number;
     reorder_level: number;
-    batch_number:  string | null;
-    expiry_date:   string | null;
 }
 
 interface MonthlyChart {
@@ -520,11 +518,6 @@ function DashboardPage() {
                                         <p className="text-sm font-medium">{item.name}</p>
                                         <p className="text-xs text-muted-foreground">
                                             Reorder at: {item.reorder_level}
-                                            {item.expiry_date && (
-                                                <span className="ml-2 text-destructive">
-                                                    Exp: {item.expiry_date}
-                                                </span>
-                                            )}
                                         </p>
                                     </div>
                                     <span className="text-xs font-bold px-2 py-1 rounded-full bg-destructive/10 text-destructive">

@@ -7,7 +7,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import SearchBar from '@/components/shared/SearchBar';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
-import { Plus, Edit, Trash2, Barcode } from 'lucide-react';
+import { Plus, Edit, Trash2, Barcode, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 
 interface Category {
@@ -35,6 +35,7 @@ interface Product {
   unit_type_id: number;
   brand_id: number;
   status: number;
+  stock_batches_sum_current_quantity?: number;
   category?: Category;
   brand?: Brand;
   unit_type?: UnitType;
@@ -201,11 +202,15 @@ function ProductsPage() {
                                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Brand</th>
                                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Category</th>
                                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Unit</th>
+                                <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3">Qty</th>
                                 <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((p) => (
+                            {filtered.map((p) => {
+                                const totalQty = p.stock_batches_sum_current_quantity ?? 0;
+                                const isLow = totalQty < p.reorder_level;
+                                return (
                                 <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                                     <td className="px-4 py-3 text-sm font-medium">{p.generic_name}</td>
                                     <td className="px-4 py-3 text-xs font-mono text-muted-foreground hidden md:table-cell">{p.barcode_value || '—'}</td>
@@ -216,6 +221,16 @@ function ProductsPage() {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-sm">{p.unit_type?.name}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <span className={`text-sm font-bold ${isLow ? 'text-destructive' : ''}`}>{totalQty}</span>
+                                            {isLow && (
+                                                <span className="inline-flex items-center gap-0.5 text-xs text-amber-600">
+                                                    <AlertTriangle className="h-3 w-3" /> Low
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
                                     <td className="px-4 py-3 text-right">
                                         <div className="flex justify-end gap-1">
                                             <button onClick={() => openEdit(p)}
@@ -229,10 +244,11 @@ function ProductsPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
                                         No products found.
                                     </td>
                                 </tr>

@@ -25,6 +25,9 @@ return new class extends Migration
             $table->string('status')->default('paid'); // paid/partial/unpaid
             $table->softDeletes();
             $table->timestamps();
+
+            $table->index('customer_id');
+            $table->index('invoice_date');
         });
     }
 

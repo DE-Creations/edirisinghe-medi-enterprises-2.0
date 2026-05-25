@@ -585,7 +585,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Combobox } from '@/components/ui/combobox';
-import { DatePicker } from '@/components/ui/date-picker';
+import { DatePicker, ExpiryDatePicker } from '@/components/ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { Trash2, Printer, Save, Plus, Search, Package } from 'lucide-react';
@@ -630,6 +630,7 @@ function GRNPage() {
     const { user } = useAuth();
 
     const [grnNum, setGrnNum] = useState('GRN-0001');
+    const [grnDate, setGrnDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [supplierId, setSupplierId] = useState('');
     const [invoiceNo, setInvoiceNo] = useState('');
     const [barcodeInput, setBarcodeInput] = useState('');
@@ -662,7 +663,6 @@ function GRNPage() {
 
     useEffect(() => {
         fetchFormData();
-        fetchNextNumber();
         inputRef.current?.focus();
     }, []);
 
@@ -681,6 +681,7 @@ function GRNPage() {
             setCategories(res.data.categories || []);
             setBrands(res.data.brands || []);
             setUnitTypes(res.data.unit_types || []);
+            if (res.data.next_number) setGrnNum(res.data.next_number);
         } catch (e: any) { console.log(e.response?.data); }
     };
 
@@ -798,18 +799,10 @@ function GRNPage() {
         const toastId = toast.loading('Saving GRN...');
 
         try {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const date = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const receivedDateTime = `${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
             const res = await axios.post('/grn/store', {
                 supplier_id: Number(supplierId),
                 supplier_invoice_no: invoiceNo || null,
-                received_date: receivedDateTime,
+                received_date: grnDate,
                 sub_total: subTotal,
                 discount: Number(discount || 0),
                 total_amount: discountedTotal,
@@ -832,7 +825,7 @@ function GRNPage() {
                 // ✅ Open print dialog with GRN data
                 printGRN({
                     grn_number: grnNum,
-                    received_date: receivedDateTime,
+                    received_date: grnDate,
                     supplier: suppliers.find((s) => String(s.id) === supplierId)?.name || '',
                     invoice_no: invoiceNo,
                     items,
@@ -1015,14 +1008,18 @@ function GRNPage() {
     const unitTypeOptions = unitTypes.map((u) => ({ value: String(u.id), label: u.name }));
 
     return (
-        <div className="max-w-6xl mx-auto space-y-4 animate-fade-in">
+        <div className="w-[80vw] mx-auto space-y-4 animate-fade-in">
             <div className="bg-card rounded-xl border border-border p-5">
 
                 {/* Header Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
                     <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">GRN Number</label>
                         <Input value={grnNum} readOnly className="bg-muted font-mono" />
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">GRN Date</label>
+                        <DatePicker value={grnDate} onChange={setGrnDate} className="w-full" />
                     </div>
                     <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Supplier</label>
@@ -1079,7 +1076,7 @@ function GRNPage() {
                                     <th className="text-center font-medium text-muted-foreground px-3 py-2 w-28">Cost Price</th>
                                     <th className="text-center font-medium text-muted-foreground px-3 py-2 w-28">Sell Price</th>
                                     <th className="text-center font-medium text-muted-foreground px-3 py-2 w-32">Batch No.</th>
-                                    <th className="text-center font-medium text-muted-foreground px-3 py-2 w-32">Expiry Date</th>
+                                    <th className="text-center font-medium text-muted-foreground px-3 py-2 w-36">Expiry Date</th>
                                     <th className="text-right font-medium text-muted-foreground px-3 py-2 w-24">Total</th>
                                     <th className="px-3 py-2 w-8"></th>
                                 </tr>
@@ -1119,9 +1116,9 @@ function GRNPage() {
                                                 placeholder="BCH-..." />
                                         </td>
                                         <td className="px-3 py-2">
-                                            <Input type="date" value={item.expiryDate}
-                                                onChange={(e) => updateItem(item.productId, 'expiryDate', e.target.value)}
-                                                className="w-32 h-8 mx-auto" />
+                                            <ExpiryDatePicker
+                                                value={item.expiryDate}
+                                                onChange={(v) => updateItem(item.productId, 'expiryDate', v)} />
                                         </td>
                                         <td className="px-3 py-2 text-right text-sm font-medium">
                                             Rs. {(item.qty * item.unitPrice).toLocaleString()}

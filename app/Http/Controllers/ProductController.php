@@ -8,7 +8,9 @@ use Illuminate\Http\Request;
 class ProductController extends Controller
 {
     public function all() {
-        $products = Product::with(['category', 'unitType', 'brand'])->get();
+        $products = Product::with(['category', 'unitType', 'brand'])
+            ->withSum('stockBatches', 'current_quantity')
+            ->get();
         return response()->json($products);
     }
 
@@ -47,6 +49,7 @@ class ProductController extends Controller
 
         $product->update($validated);
         $product->load(['category', 'unitType', 'brand']);
+        $product->loadSum('stockBatches', 'current_quantity');
         return response()->json($product);
     }
 

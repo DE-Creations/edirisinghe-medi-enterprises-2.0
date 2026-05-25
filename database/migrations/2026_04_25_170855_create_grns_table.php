@@ -27,6 +27,9 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->softDeletes();
             $table->timestamps();
+
+            $table->index('supplier_id');
+            $table->index('received_date');
         });
     }
 

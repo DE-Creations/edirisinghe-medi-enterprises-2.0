@@ -229,7 +229,7 @@
 
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import SearchBar from '@/components/shared/SearchBar';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -271,32 +271,51 @@ function GRNHistoryPage() {
     const [dateFilter, setDateFilter] = useState('');
     const [viewGrn,    setViewGrn]    = useState<Grn | null>(null);
     const [deleteId,   setDeleteId]   = useState<number | null>(null);
+    const [page,       setPage]       = useState(1);
+    const [lastPage,   setLastPage]   = useState(1);
+    const [total,      setTotal]      = useState(0);
+    const [loading,    setLoading]    = useState(false);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    useEffect(() => { fetchGrns(); }, []);
-
-    const fetchGrns = async () => {
+    const fetchGrns = async (pg: number, s: string, d: string) => {
+        setLoading(true);
         try {
-            const res = await axios.get('/grn/all');
-            setGrns(res.data);
+            const res = await axios.get('/grn/all', {
+                params: { page: pg, search: s || undefined, date: d || undefined },
+            });
+            setGrns(res.data.data);
+            setLastPage(res.data.last_page);
+            setTotal(res.data.total);
         } catch (e) { console.log(e); }
+        finally { setLoading(false); }
     };
+
+    // Fetch when page changes
+    useEffect(() => { fetchGrns(page, search, dateFilter); }, [page]);
+
+    // Debounce search/date changes and reset to page 1
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            setPage(1);
+            fetchGrns(1, search, dateFilter);
+        }, 350);
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, [search, dateFilter]);
 
     const handleDelete = async () => {
         try {
             await axios.delete(`/grn/delete/${deleteId}`);
             setGrns((prev) => prev.filter((g) => g.id !== deleteId));
             setDeleteId(null);
+            setTotal((t) => t - 1);
             toast.success('GRN deleted.');
         } catch (e) {
             toast.error('Failed to delete GRN.');
         }
     };
 
-    const filtered = grns.filter((g) =>
-        (g.grn_number.toLowerCase().includes(search.toLowerCase()) ||
-         g.supplier?.name.toLowerCase().includes(search.toLowerCase())) &&
-        (!dateFilter || g.received_date.startsWith(dateFilter))
-    );
+    const filtered = grns;
 
     const statusColor = (status: string) => {
         if (status === 'paid')    return 'bg-green-500/10 text-green-600';
@@ -364,7 +383,7 @@ function GRNHistoryPage() {
                             {filtered.length === 0 && (
                                 <tr>
                                     <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                                        No GRNs found.
+                                        {loading ? 'Loading...' : 'No GRNs found.'}
                                     </td>
                                 </tr>
                             )}
@@ -372,6 +391,25 @@ function GRNHistoryPage() {
                     </table>
                 </div>
             </div>
+
+            {/* Pagination */}
+            {lastPage > 1 && (
+                <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                        Page {page} of {lastPage} &mdash; {total} records
+                    </span>
+                    <div className="flex gap-2">
+                        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                            className="px-3 py-1 rounded border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">
+                            Prev
+                        </button>
+                        <button onClick={() => setPage((p) => Math.min(lastPage, p + 1))} disabled={page === lastPage}
+                            className="px-3 py-1 rounded border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* View Dialog */}
             <Dialog open={!!viewGrn} onOpenChange={(open) => !open && setViewGrn(null)}>

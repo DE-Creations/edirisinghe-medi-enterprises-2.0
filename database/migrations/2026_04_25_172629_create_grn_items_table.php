@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('grn_items', function (Blueprint $table) {
             $table->id();  
-            $table->string('grn_id');      
+            $table->unsignedBigInteger('grn_id');      
             $table->string('product_id'); 
             $table->integer('quantity');
             $table->decimal('unit_price', 15, 2); 
@@ -23,6 +23,9 @@ return new class extends Migration
             $table->date('mfd_date')->nullable();       
             $table->softDeletes();
             $table->timestamps();
+
+            $table->index('product_id');
+            $table->foreign('grn_id')->references('id')->on('grns')->onDelete('cascade');
         });
     }
 

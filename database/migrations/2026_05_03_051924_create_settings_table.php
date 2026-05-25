@@ -17,8 +17,6 @@ return new class extends Migration
             $table->string('company_name')->nullable();
             $table->string('company_address')->nullable();
             $table->string('company_phone')->nullable();
-            $table->double('current_vat_percentage', 3, 2)->nullable();
-            $table->date('vat_effective_date')->nullable();
             $table->timestamps();
         });
     }

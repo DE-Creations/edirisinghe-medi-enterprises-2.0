@@ -388,7 +388,6 @@ function InvoicePage() {
 
     useEffect(() => {
         fetchFormData();
-        fetchNextNumber();
         inputRef.current?.focus();
     }, []);
 
@@ -404,6 +403,7 @@ function InvoicePage() {
             const res = await axios.get('/invoice/form-data');
             setCustomers(res.data.customers);
             setStockItems(res.data.stock);
+            if (res.data.next_number) setInvoiceNum(res.data.next_number);
         } catch (e: any) {
             console.log('Form data error:', e.response?.data);
         }
@@ -451,6 +451,15 @@ function InvoicePage() {
             const newQty = c.qty + delta;
             if (newQty > c.stock) { toast.error(`Only ${c.stock} in stock!`); return c; }
             return { ...c, qty: Math.max(1, newQty) };
+        }));
+    };
+
+    const setItemQty = (stock_batch_id: number, value: number) => {
+        if (isNaN(value)) return;
+        setCart((prev) => prev.map((c) => {
+            if (c.stock_batch_id !== stock_batch_id) return c;
+            if (value > c.stock) { toast.error(`Only ${c.stock} in stock!`); return { ...c, qty: c.stock }; }
+            return { ...c, qty: Math.max(1, value) };
         }));
     };
 
@@ -611,8 +620,16 @@ function InvoicePage() {
                                     className="h-6 w-6 rounded bg-background border border-border flex items-center justify-center hover:bg-accent">
                                     <Minus className="h-3 w-3" />
                                 </button>
-                                <span className="w-8 text-center text-xs font-semibold">{item.qty}</span>
-                                <button onClick={() => updateQty(item.stock_batch_id, Number(item.qty))}
+                                <input
+                                    type="number"
+                                    value={item.qty}
+                                    min={1}
+                                    max={item.stock}
+                                    onChange={(e) => setItemQty(item.stock_batch_id, parseInt(e.target.value, 10))}
+                                    className="w-10 h-6 text-center text-xs font-semibold bg-background border border-input rounded px-1
+                                        [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <button onClick={() => updateQty(item.stock_batch_id, 1)}
                                     className="h-6 w-6 rounded bg-background border border-border flex items-center justify-center hover:bg-accent">
                                     <Plus className="h-3 w-3" />
                                 </button>

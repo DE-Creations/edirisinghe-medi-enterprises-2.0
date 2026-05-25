@@ -13,14 +13,16 @@ return new class extends Migration
     {
         Schema::create('inventory_adjustments', function (Blueprint $table) {
             $table->id();
-            $table->string('stock_batch_id');
-            $table->string('user_id');
+            $table->unsignedBigInteger('stock_batch_id');
+            $table->unsignedBigInteger('user_id');
             $table->integer('quantity'); 
             $table->enum('type', ['sample', 'gift', 'damage', 'expiry', 'correction', 'other']);
             $table->text('description')->nullable();
             $table->date('date');
-            $table->softDeletes();
             $table->timestamps();
+
+            $table->foreign('stock_batch_id')->references('id')->on('stock_batches')->onDelete('cascade');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 

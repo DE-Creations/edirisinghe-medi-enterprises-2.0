@@ -19,6 +19,9 @@ return new class extends Migration
             $table->decimal('unit_price', 15, 2);
             $table->softDeletes();
             $table->timestamps();
+
+            $table->index('invoice_id');
+            $table->index('stock_batch_id');
         });
     }
 
