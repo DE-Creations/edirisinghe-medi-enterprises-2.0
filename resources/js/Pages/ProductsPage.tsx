@@ -69,7 +69,7 @@ function ProductsPage() {
     try {
       const [p, b, c, u] = await Promise.all([
         axios.get('/products/all'),
-        axios.get('/brands/all'),        
+        axios.get('/brands/all'),
         axios.get('/categories/all'),
         axios.get('/unit-types/all'),
       ]);
@@ -275,7 +275,7 @@ function ProductsPage() {
                             </Button>
                         </div>
 
-                        <div>
+                        <div className="mt-auto">
                             <FloatingInput label="Reorder Level" type="number"
                                 value={form.reorder_level ?? ''}
                                 onChange={(e) => setForm({ ...form, reorder_level: Number(e.target.value) })}
