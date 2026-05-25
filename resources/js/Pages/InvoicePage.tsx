@@ -612,7 +612,6 @@ function InvoicePage() {
                                     <Minus className="h-3 w-3" />
                                 </button>
                                 <span className="w-8 text-center text-xs font-semibold">{item.qty}</span>
-                                {/* <input type="number" name="qty" id="qty" value={item.qty}/> */}
                                 <button onClick={() => updateQty(item.stock_batch_id, Number(item.qty))}
                                     className="h-6 w-6 rounded bg-background border border-border flex items-center justify-center hover:bg-accent">
                                     <Plus className="h-3 w-3" />
