@@ -7,6 +7,7 @@ use App\Models\Grn_items;
 use App\Models\StockBatches;
 use App\Models\Product;
 use App\Models\Suppliers;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -66,14 +67,70 @@ class GrnController extends Controller
     }
 
 
-    public function all()
-    {
-        $grns = Grn::with(['supplier', 'user', 'items.product'])->latest()->get();
-        return response()->json($grns);
+    public function all() {
+        
+        try {
+            $grns = Grn::with(['supplier', 'user', 'items.product'])
+                ->latest()
+                ->get()
+                ->map(function ($grn) {
+
+                    $paymentsPaid = Payment::where('reference_type', 'grn')
+                        ->where('reference_id', $grn->id)
+                        ->sum('amount');
+
+                    $totalPaid   = $grn->paid_amount + $paymentsPaid;
+                    $outstanding = max(0, $grn->total_amount - $totalPaid);
+
+                    $status = 'unpaid';
+                    if ($totalPaid >= $grn->total_amount) $status = 'paid';
+                    elseif ($totalPaid > 0)               $status = 'partial';
+
+                    $paymentRecords = Payment::where('reference_type', 'grn')
+                        ->where('reference_id', $grn->id)
+                        ->with('user')
+                        ->latest()
+                        ->get()
+                        ->map(fn($p) => [
+                            'id'     => $p->id,
+                            'date'   => $p->date,
+                            'amount' => $p->amount,
+                            'notes'  => $p->notes,
+                            'by'     => $p->user?->name,
+                        ]);
+
+                    return [
+                        'id'                  => $grn->id,
+                        'grn_number'          => $grn->grn_number,
+                        'received_date'       => $grn->received_date,
+                        'supplier_invoice_no' => $grn->supplier_invoice_no,
+                        'supplier'            => $grn->supplier,
+                        'user'                => $grn->user,
+                        'sub_total'           => $grn->sub_total,
+                        'discount'            => $grn->discount,
+                        'total_amount'        => $grn->total_amount,
+                        'initial_paid'        => $grn->paid_amount,
+                        'total_paid'          => $totalPaid,
+                        'outstanding'         => $outstanding,
+                        'payment_method'      => $grn->payment_method,
+                        'payment_status'      => $status,
+                        'items'               => $grn->items,
+                        'payment_records'     => $paymentRecords,
+                    ];
+                });
+
+            return response()->json($grns);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'line'  => $e->getLine(),
+                'file'  => $e->getFile(),
+            ], 500);
+        }
     }
 
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
 
         $validated = $request->validate([
             'supplier_id'            => 'required|exists:suppliers,id',

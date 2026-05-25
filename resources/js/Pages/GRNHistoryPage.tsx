@@ -240,37 +240,48 @@ import { toast } from '@/components/ui/sonner';
 import axios from 'axios';
 
 interface GrnItem {
-    id:            number;
-    product:       { generic_name: string };
-    quantity:      number;
-    unit_price:    number;
+    id: number;
+    product: { generic_name: string };
+    quantity: number;
+    unit_price: number;
     selling_price: number;
-    batch_number:  string | null;
-    expiry_date:   string | null;
+    batch_number: string | null;
+    expiry_date: string | null;
 }
 
 interface Grn {
-    id:                  number;
-    grn_number:          string;
-    received_date:       string;
-    supplier:            { name: string };
-    user:                { name: string };
-    sub_total:           number;
-    discount:            number;
-    total_amount:        number;
-    paid_amount:         number;
-    payment_method:      string;
-    payment_status:      string;
+    id: number;
+    grn_number: string;
+    received_date: string;
+    supplier: { name: string };
+    user: { name: string } | null;
+    sub_total: number;
+    discount: number;
+    total_amount: number;
+    initial_paid: number;
+    total_paid: number;
+    outstanding: number;
+    payment_method: string;
+    payment_status: string;  // now dynamic
     supplier_invoice_no: string | null;
-    items:               GrnItem[];
+    items: GrnItem[];
+    payment_records: PaymentRecord[]; // new
+}
+
+interface PaymentRecord {
+    id: number;
+    date: string;
+    amount: number;
+    notes: string | null;
+    by: string | null;
 }
 
 function GRNHistoryPage() {
-    const [grns,       setGrns]       = useState<Grn[]>([]);
-    const [search,     setSearch]     = useState('');
+    const [grns, setGrns] = useState<Grn[]>([]);
+    const [search, setSearch] = useState('');
     const [dateFilter, setDateFilter] = useState('');
-    const [viewGrn,    setViewGrn]    = useState<Grn | null>(null);
-    const [deleteId,   setDeleteId]   = useState<number | null>(null);
+    const [viewGrn, setViewGrn] = useState<Grn | null>(null);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
 
     useEffect(() => { fetchGrns(); }, []);
 
@@ -294,12 +305,12 @@ function GRNHistoryPage() {
 
     const filtered = grns.filter((g) =>
         (g.grn_number.toLowerCase().includes(search.toLowerCase()) ||
-         g.supplier?.name.toLowerCase().includes(search.toLowerCase())) &&
+            g.supplier?.name.toLowerCase().includes(search.toLowerCase())) &&
         (!dateFilter || g.received_date.startsWith(dateFilter))
     );
 
     const statusColor = (status: string) => {
-        if (status === 'paid')    return 'bg-green-500/10 text-green-600';
+        if (status === 'paid') return 'bg-green-500/10 text-green-600';
         if (status === 'partial') return 'bg-yellow-500/10 text-yellow-600';
         return 'bg-destructive/10 text-destructive';
     };
@@ -407,7 +418,13 @@ function GRNHistoryPage() {
                                 )}
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status</span>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColor(viewGrn.payment_status)}`}>
+                                    {/* ✅ Dynamic status */}
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize
+                    ${viewGrn.payment_status === 'paid'
+                                            ? 'bg-green-500/10 text-green-600'
+                                            : viewGrn.payment_status === 'partial'
+                                                ? 'bg-yellow-500/10 text-yellow-600'
+                                                : 'bg-destructive/10 text-destructive'}`}>
                                         {viewGrn.payment_status}
                                     </span>
                                 </div>
@@ -436,7 +453,7 @@ function GRNHistoryPage() {
                                                 <td className="py-2 font-medium">
                                                     {item.product?.generic_name}
                                                     {item.batch_number && (
-                                                        <span className="text-xs text-muted-foreground ml-1">
+                                                        <span className="text-xs text-muted-foreground ml-1 font-mono">
                                                             [{item.batch_number}]
                                                         </span>
                                                     )}
@@ -466,27 +483,73 @@ function GRNHistoryPage() {
                                     <span className="text-muted-foreground">Sub Total</span>
                                     <span>Rs. {Number(viewGrn.sub_total).toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Discount</span>
-                                    <span>Rs. {Number(viewGrn.discount).toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between font-semibold text-base">
+                                {Number(viewGrn.discount) > 0 && (
+                                    <div className="flex justify-between text-destructive">
+                                        <span>Discount</span>
+                                        <span>- Rs. {Number(viewGrn.discount).toLocaleString()}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between font-semibold text-base pt-1 border-t">
                                     <span>Total</span>
                                     <span className="text-primary">Rs. {Number(viewGrn.total_amount).toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Paid</span>
-                                    <span className="text-green-600">Rs. {Number(viewGrn.paid_amount).toLocaleString()}</span>
+                                <div className="flex justify-between text-green-600">
+                                    <span>Total Paid</span>
+                                    <span>Rs. {Number(viewGrn.total_paid).toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Balance</span>
-                                    <span className={Number(viewGrn.total_amount) - Number(viewGrn.paid_amount) > 0
-                                        ? 'text-destructive font-medium'
-                                        : 'text-green-600 font-medium'}>
-                                        Rs. {Math.abs(Number(viewGrn.total_amount) - Number(viewGrn.paid_amount)).toLocaleString()}
+                                <div className="flex justify-between font-semibold">
+                                    <span>Balance</span>
+                                    <span className={Number(viewGrn.outstanding) > 0 ? 'text-destructive' : 'text-green-600'}>
+                                        Rs. {Number(viewGrn.outstanding).toLocaleString()}
                                     </span>
                                 </div>
                             </div>
+
+                            {/* ✅ Payment Records Section */}
+                            {viewGrn.payment_records && viewGrn.payment_records.length > 0 && (
+                                <>
+                                    <Separator />
+                                    <div>
+                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                            Payment Records
+                                        </p>
+                                        <div className="space-y-1.5">
+                                            {/* Initial payment at GRN creation */}
+                                            {Number(viewGrn.initial_paid) > 0 && (
+                                                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/50 text-sm">
+                                                    <div>
+                                                        <span className="font-medium">Initial Payment</span>
+                                                        <span className="text-xs text-muted-foreground ml-2">
+                                                            (at GRN creation)
+                                                        </span>
+                                                    </div>
+                                                    <span className="font-semibold text-green-600">
+                                                        Rs. {Number(viewGrn.initial_paid).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {/* Subsequent payments */}
+                                            {viewGrn.payment_records.map((p) => (
+                                                <div key={p.id}
+                                                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/50 text-sm">
+                                                    <div>
+                                                        <span className="font-medium">{p.date}</span>
+                                                        {p.by && (
+                                                            <span className="text-xs text-muted-foreground ml-2">by {p.by}</span>
+                                                        )}
+                                                        {p.notes && (
+                                                            <span className="text-xs text-muted-foreground ml-2">· {p.notes}</span>
+                                                        )}
+                                                    </div>
+                                                    <span className="font-semibold text-green-600">
+                                                        Rs. {Number(p.amount).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </DialogContent>

@@ -161,8 +161,18 @@ class PayableController extends Controller
             ], 422);
         } 
         
-        $payment = Payment::create($validated);
+        Payment::create($validated);
 
-        return response()->json($payment, 201);        
+        if ($validated['reference_type'] === 'grn') {
+            
+            $newTotalPaid  = $totalPaid + $validated['amount'];
+            $newStatus     = 'unpaid';
+            if ($newTotalPaid >= $total)       $newStatus = 'paid';
+            elseif ($newTotalPaid > 0)         $newStatus = 'partial';
+
+            $ref->update(['payment_status' => $newStatus]);
+        }
+
+        return response()->json(['message' => 'Payment recorded'], 201);        
     }
 }
