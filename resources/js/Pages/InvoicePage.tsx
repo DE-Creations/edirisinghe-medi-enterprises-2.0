@@ -571,7 +571,7 @@ function InvoicePage() {
             </div>
 
             {/* Right: Cart & Payment */}
-            <div className="w-full lg:w-[380px] flex flex-col bg-card rounded-xl border border-border">
+            <div className="w-full lg:w-[600px] flex flex-col bg-card rounded-xl border border-border">
                 {/* Header */}
                 <div className="p-4 border-b border-border">
                     <div className="flex items-center justify-between gap-2">
@@ -612,7 +612,8 @@ function InvoicePage() {
                                     <Minus className="h-3 w-3" />
                                 </button>
                                 <span className="w-8 text-center text-xs font-semibold">{item.qty}</span>
-                                <button onClick={() => updateQty(item.stock_batch_id, 1)}
+                                {/* <input type="number" name="qty" id="qty" value={item.qty}/> */}
+                                <button onClick={() => updateQty(item.stock_batch_id, Number(item.qty))}
                                     className="h-6 w-6 rounded bg-background border border-border flex items-center justify-center hover:bg-accent">
                                     <Plus className="h-3 w-3" />
                                 </button>
