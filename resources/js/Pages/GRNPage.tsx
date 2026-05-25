@@ -588,7 +588,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { DatePicker, ExpiryDatePicker } from '@/components/ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { format } from 'date-fns';
-import { Trash2, Printer, Save, Plus, Search, Package } from 'lucide-react';
+import { Trash2, Printer, Save, Plus, Search, Package, Barcode } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import axios from 'axios';
 
@@ -654,17 +654,68 @@ function GRNPage() {
     const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
     const [unitTypes, setUnitTypes] = useState<{ id: number; name: string }[]>([]);
 
+    // Inline-add dialogs for Register New Product
+    const [showNewBrandGrn,    setShowNewBrandGrn]    = useState(false);
+    const [showNewCatGrn,      setShowNewCatGrn]      = useState(false);
+    const [showNewUnitTypeGrn, setShowNewUnitTypeGrn] = useState(false);
+    const [newBrandNameGrn,    setNewBrandNameGrn]    = useState('');
+    const [newCatNameGrn,      setNewCatNameGrn]      = useState('');
+    const [newUnitTypeNameGrn, setNewUnitTypeNameGrn] = useState('');
+
+    const handleAddBrandGrn = async () => {
+        if (!newBrandNameGrn.trim()) return;
+        try {
+            const res = await axios.post('/brands/store', { name: newBrandNameGrn.trim() });
+            setBrands((prev) => [...prev, res.data]);
+            setNewProductForm((f) => ({ ...f, brand_id: String(res.data.id) }));
+            setNewBrandNameGrn('');
+            setShowNewBrandGrn(false);
+        } catch (e: any) { console.log(e.response?.data); }
+    };
+
+    const handleAddCatGrn = async () => {
+        if (!newCatNameGrn.trim()) return;
+        try {
+            const res = await axios.post('/categories/store', { name: newCatNameGrn.trim() });
+            setCategories((prev) => [...prev, res.data]);
+            setNewProductForm((f) => ({ ...f, category_id: String(res.data.id) }));
+            setNewCatNameGrn('');
+            setShowNewCatGrn(false);
+        } catch (e: any) { console.log(e.response?.data); }
+    };
+
+    const handleAddUnitTypeGrn = async () => {
+        if (!newUnitTypeNameGrn.trim()) return;
+        try {
+            const res = await axios.post('/unit-types/store', { name: newUnitTypeNameGrn.trim() });
+            setUnitTypes((prev) => [...prev, res.data]);
+            setNewProductForm((f) => ({ ...f, unit_type_id: String(res.data.id) }));
+            setNewUnitTypeNameGrn('');
+            setShowNewUnitTypeGrn(false);
+        } catch (e: any) { console.log(e.response?.data); }
+    };
+
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Totals
-    const subTotal = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+    const subTotal        = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
     const discountedTotal = Math.max(0, subTotal - Number(discount || 0));
-    const balance = discountedTotal - Number(paidAmount || 0);
+    const [vatRate, setVatRate] = useState(0);
+    const vatAmount  = Math.round(discountedTotal * vatRate / 100);
+    const grandTotal = discountedTotal + vatAmount;
+    const balance    = grandTotal - Number(paidAmount || 0);
 
     useEffect(() => {
         fetchFormData();
         inputRef.current?.focus();
     }, []);
+
+    useEffect(() => {
+        if (!grnDate) return;
+        axios.get('/vat/by-date', { params: { date: grnDate } })
+            .then((res) => setVatRate(res.data ? Number(res.data.vat_percentage) : 0))
+            .catch(() => setVatRate(0));
+    }, [grnDate]);
 
     const fetchNextNumber = async () => {
         try {
@@ -805,7 +856,7 @@ function GRNPage() {
                 received_date: grnDate,
                 sub_total: subTotal,
                 discount: Number(discount || 0),
-                total_amount: discountedTotal,
+                total_amount: grandTotal,
                 paid_amount: Number(paidAmount || 0),
                 payment_method: paymentMethod,
                 items: items.map((i) => ({
@@ -831,7 +882,7 @@ function GRNPage() {
                     items,
                     sub_total: subTotal,
                     discount: Number(discount || 0),
-                    total_amount: discountedTotal,
+                    total_amount: grandTotal,
                     paid_amount: Number(paidAmount || 0),
                     payment_method: paymentMethod,
                     received_by: user?.name || '',
@@ -1158,6 +1209,15 @@ function GRNPage() {
                         value={discount}
                         onChange={(e) => setDiscount(e.target.value)}
                         className={`h-[52px] ${spinnerOff}`} />
+                    {vatRate > 0 && (
+                        <FloatingInput
+                            label={`VAT (${vatRate.toFixed(2)}%)`}
+                            value={`Rs. ${vatAmount.toLocaleString()}`}
+                            readOnly className="h-[52px] bg-muted/30 cursor-default" />
+                    )}
+                    <FloatingInput label={vatRate > 0 ? 'Grand Total (Rs.)' : 'Total (Rs.)'}
+                        value={`Rs. ${grandTotal.toLocaleString()}`}
+                        readOnly className="h-[52px] bg-muted/30 cursor-default font-semibold" />
                     <FloatingInput label="Paid Amount (Rs.)" type="number"
                         value={paidAmount}
                         onChange={(e) => setPaidAmount(e.target.value)}
@@ -1228,67 +1288,157 @@ function GRNPage() {
 
             {/* ✅ Register New Product Dialog */}
             <Dialog open={showNewProduct} onOpenChange={setShowNewProduct}>
-                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Package className="h-4 w-4" /> Register New Product
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="grid grid-cols-2 gap-4 py-2">
-                        <div className="col-span-2">
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                                Generic Name <span className="text-destructive">*</span>
-                            </label>
-                            <Input value={newProductForm.generic_name}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
+
+                        <div className="sm:col-span-2">
+                            <FloatingInput label="Generic Name"
+                                value={newProductForm.generic_name}
                                 onChange={(e) => setNewProductForm({ ...newProductForm, generic_name: e.target.value })}
-                                placeholder="e.g. Paracetamol 500mg" autoFocus />
+                                autoFocus />
                         </div>
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                                Barcode <span className="text-destructive">*</span>
-                            </label>
-                            <Input value={newProductForm.barcode_value}
-                                onChange={(e) => setNewProductForm({ ...newProductForm, barcode_value: e.target.value })}
-                                className="font-mono" />
+
+                        <div className="flex gap-2 items-end">
+                            <div className="flex-1">
+                                <FloatingInput label="Barcode"
+                                    value={newProductForm.barcode_value}
+                                    onChange={(e) => setNewProductForm({ ...newProductForm, barcode_value: e.target.value })} />
+                            </div>
+                            <Button variant="outline" size="icon" className="shrink-0"
+                                onClick={() => setNewProductForm({ ...newProductForm, barcode_value: String(Math.floor(Math.random() * 9000000000) + 1000000000) })}>
+                                <Barcode className="h-4 w-4" />
+                            </Button>
                         </div>
+
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">SKU</label>
-                            <Input value={newProductForm.sku}
-                                onChange={(e) => setNewProductForm({ ...newProductForm, sku: e.target.value })}
-                                placeholder="Auto if empty" />
+                            <FloatingInput label="SKU (auto if empty)"
+                                value={newProductForm.sku}
+                                onChange={(e) => setNewProductForm({ ...newProductForm, sku: e.target.value })} />
                         </div>
+
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Reorder Level</label>
-                            <Input type="number" value={newProductForm.reorder_level}
+                            <FloatingInput label="Reorder Level" type="number"
+                                value={newProductForm.reorder_level}
                                 onChange={(e) => setNewProductForm({ ...newProductForm, reorder_level: e.target.value })} />
                         </div>
+
+                        {/* Brand */}
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
-                            <Combobox options={categoryOptions}
-                                value={newProductForm.category_id}
-                                onValueChange={(v) => setNewProductForm({ ...newProductForm, category_id: v })}
-                                placeholder="Select category..." searchPlaceholder="Search..." />
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Brand</p>
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <Combobox options={brands.map((b) => ({ value: String(b.id), label: b.name }))}
+                                        value={newProductForm.brand_id}
+                                        onValueChange={(v) => setNewProductForm({ ...newProductForm, brand_id: v })}
+                                        placeholder="Select brand..." searchPlaceholder="Search..." />
+                                </div>
+                                <Button variant="outline" size="icon" onClick={() => setShowNewBrandGrn(true)}>
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
+
+                        {/* Category */}
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Brand</label>
-                            <Combobox options={brandOptions}
-                                value={newProductForm.brand_id}
-                                onValueChange={(v) => setNewProductForm({ ...newProductForm, brand_id: v })}
-                                placeholder="Select brand..." searchPlaceholder="Search..." />
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Category</p>
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <Combobox options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
+                                        value={newProductForm.category_id}
+                                        onValueChange={(v) => setNewProductForm({ ...newProductForm, category_id: v })}
+                                        placeholder="Select category..." searchPlaceholder="Search..." />
+                                </div>
+                                <Button variant="outline" size="icon" onClick={() => setShowNewCatGrn(true)}>
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
+
+                        {/* Unit Type */}
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Unit Type</label>
-                            <Combobox options={unitTypeOptions}
-                                value={newProductForm.unit_type_id}
-                                onValueChange={(v) => setNewProductForm({ ...newProductForm, unit_type_id: v })}
-                                placeholder="Select unit..." searchPlaceholder="Search..." />
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Unit Type</p>
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <Combobox options={unitTypes.map((u) => ({ value: String(u.id), label: u.name }))}
+                                        value={newProductForm.unit_type_id}
+                                        onValueChange={(v) => setNewProductForm({ ...newProductForm, unit_type_id: v })}
+                                        placeholder="Select unit..." searchPlaceholder="Search..." />
+                                </div>
+                                <Button variant="outline" size="icon" onClick={() => setShowNewUnitTypeGrn(true)}>
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
+
+                        {/* Barcode preview */}
+                        {newProductForm.barcode_value && (
+                            <div className="sm:col-span-2 p-3 bg-muted/50 rounded-lg flex items-center gap-3">
+                                <Barcode className="h-5 w-5 text-muted-foreground shrink-0" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">Barcode Preview</p>
+                                    <p className="text-base font-mono tracking-widest">{newProductForm.barcode_value}</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowNewProduct(false)}>Cancel</Button>
                         <Button onClick={handleRegisterProduct} className="gap-2">
                             <Plus className="h-4 w-4" /> Register & Add to GRN
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Inline Add Brand */}
+            <Dialog open={showNewBrandGrn} onOpenChange={(open) => !open && setShowNewBrandGrn(false)}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader><DialogTitle>Add New Brand</DialogTitle></DialogHeader>
+                    <div className="py-2">
+                        <FloatingInput label="Brand Name" value={newBrandNameGrn}
+                            onChange={(e) => setNewBrandNameGrn(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddBrandGrn()} autoFocus />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setShowNewBrandGrn(false); setNewBrandNameGrn(''); }}>Cancel</Button>
+                        <Button onClick={handleAddBrandGrn}>Add Brand</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Inline Add Category */}
+            <Dialog open={showNewCatGrn} onOpenChange={(open) => !open && setShowNewCatGrn(false)}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader><DialogTitle>Add New Category</DialogTitle></DialogHeader>
+                    <div className="py-2">
+                        <FloatingInput label="Category Name" value={newCatNameGrn}
+                            onChange={(e) => setNewCatNameGrn(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddCatGrn()} autoFocus />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setShowNewCatGrn(false); setNewCatNameGrn(''); }}>Cancel</Button>
+                        <Button onClick={handleAddCatGrn}>Add Category</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Inline Add Unit Type */}
+            <Dialog open={showNewUnitTypeGrn} onOpenChange={(open) => !open && setShowNewUnitTypeGrn(false)}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader><DialogTitle>Add New Unit Type</DialogTitle></DialogHeader>
+                    <div className="py-2">
+                        <FloatingInput label="Unit Type Name" value={newUnitTypeNameGrn}
+                            onChange={(e) => setNewUnitTypeNameGrn(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddUnitTypeGrn()} autoFocus />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setShowNewUnitTypeGrn(false); setNewUnitTypeNameGrn(''); }}>Cancel</Button>
+                        <Button onClick={handleAddUnitTypeGrn}>Add Unit Type</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

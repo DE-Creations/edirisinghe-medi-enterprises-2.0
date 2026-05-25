@@ -379,17 +379,27 @@ function InvoicePage() {
     const [customers,      setCustomers]      = useState<Customer[]>([]);
     const [stockItems,     setStockItems]     = useState<StockItem[]>([]);
     const [saving,         setSaving]         = useState(false);
+    const [vatRate,        setVatRate]        = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Calculated totals
     const subTotal        = cart.reduce((s, i) => s + i.qty * i.price, 0);
     const discountedTotal = Math.max(0, subTotal - Number(discount || 0));
-    const balance         = Number(paidAmount || 0) - discountedTotal;
+    const vatAmount       = Math.round(discountedTotal * vatRate / 100);
+    const grandTotal      = discountedTotal + vatAmount;
+    const balance         = Number(paidAmount || 0) - grandTotal;
 
     useEffect(() => {
         fetchFormData();
         inputRef.current?.focus();
     }, []);
+
+    useEffect(() => {
+        if (!invoiceDate) return;
+        axios.get('/vat/by-date', { params: { date: invoiceDate } })
+            .then((res) => setVatRate(res.data ? Number(res.data.vat_percentage) : 0))
+            .catch(() => setVatRate(0));
+    }, [invoiceDate]);
 
     const fetchNextNumber = async () => {
         try {
@@ -495,7 +505,7 @@ function InvoicePage() {
                 invoice_date:   invoiceDate,
                 sub_total:      subTotal,
                 discount:       Number(discount || 0),
-                grand_total:    discountedTotal,
+                grand_total:    grandTotal,
                 paid_amount:    Number(paidAmount || 0),
                 payment_method: paymentMethod,
                 items: cart.map((i) => ({
@@ -657,6 +667,12 @@ function InvoicePage() {
                             <span>- Rs. {Number(discount).toLocaleString()}</span>
                         </div>
                     )}
+                    {vatRate > 0 && (
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>VAT ({vatRate.toFixed(2)}%)</span>
+                            <span>+ Rs. {vatAmount.toLocaleString()}</span>
+                        </div>
+                    )}
 
                     {/* Payment method */}
                     <div className="flex gap-2">
@@ -691,7 +707,7 @@ function InvoicePage() {
                     <div className="bg-primary/10 rounded-lg p-3 text-center">
                         <p className="text-[10px] text-muted-foreground">TOTAL</p>
                         <p className="text-2xl font-bold text-primary">
-                            Rs. {discountedTotal.toLocaleString()}
+                            Rs. {grandTotal.toLocaleString()}
                         </p>
                     </div>
 

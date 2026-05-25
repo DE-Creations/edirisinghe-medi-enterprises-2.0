@@ -11,7 +11,7 @@ class Settings extends Model
         'company_name',
         'company_address',
         'company_phone',
-        'current_vat_percentage',
-        'vat_effective_date'
+        'company_vat_no',
+        'place_of_supply',
     ];
 }

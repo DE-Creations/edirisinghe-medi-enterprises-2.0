@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import SearchBar from '@/components/shared/SearchBar';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { Plus, Edit, Trash2, Barcode, AlertTriangle } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 import axios from 'axios';
 
 interface Category {
@@ -99,8 +100,8 @@ function ProductsPage() {
 
     const payload = {
       generic_name: form.generic_name,
-      sku: form.sku,
-      barcode_value: form.barcode_value,
+      sku: form.sku || `SKU-${Date.now()}`,
+      barcode_value: form.barcode_value || String(Math.floor(Math.random() * 9000000000) + 1000000000),
       reorder_level: form.reorder_level,
       category_id: form.category_id,
       unit_type_id: form.unit_type_id,
@@ -120,6 +121,7 @@ function ProductsPage() {
 
     } catch (error: any) {
       console.log('Save error:', error.response?.data);
+      toast.error(error.response?.data?.message || 'Failed to save product.');
     }
   };
 

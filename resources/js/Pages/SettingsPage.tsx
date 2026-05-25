@@ -1139,12 +1139,17 @@ function CompaniesSection({ companies, onAdd, onEdit, onDelete }: {
 function SettingsPage() {
     const { isDark, setTheme } = useTheme();
 
-    const [vatPercent,     setVatPercent]     = useState('15');
-    const [vatDate,        setVatDate]        = useState('');
-    const [companyName,    setCompanyName]    = useState('');
-    const [companyAddress, setCompanyAddress] = useState('');
-    const [companyTIN,     setCompanyTIN]     = useState('');
-    const [companyPhone,   setCompanyPhone]   = useState('');
+    // VAT state
+    const [vatPercent,       setVatPercent]       = useState('');
+    const [vatDate,          setVatDate]          = useState('');
+    const [currentVatInfo,   setCurrentVatInfo]   = useState<{ vat_percentage: string; from_date: string } | null>(null);
+
+    // Company profile state
+    const [companyName,      setCompanyName]      = useState('');
+    const [companyAddress,   setCompanyAddress]   = useState('');
+    const [companyPhone,     setCompanyPhone]     = useState('');
+    const [companyVatNo,     setCompanyVatNo]     = useState('');
+    const [placeOfSupply,    setPlaceOfSupply]    = useState('');
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [brands,     setBrands]     = useState<Brand[]>([]);
@@ -1153,29 +1158,27 @@ function SettingsPage() {
 
     useEffect(() => {
         fetchSettings();
-        fetchCompanyProfile();
+        fetchCurrentVat();
         fetchCrudData();
     }, []);
-
-    const fetchCompanyProfile = async () => {
-        try {
-            const res = await axios.get('/company-profile');
-            if (res.data) {
-                setCompanyName(res.data.company_name   || '');
-                setCompanyAddress(res.data.address     || '');
-                setCompanyTIN(res.data.tin_number      || '');
-                setCompanyPhone(res.data.phone_number  || '');
-            }
-        } catch (e) { console.log(e); }
-    };
 
     const fetchSettings = async () => {
         try {
             const res = await axios.get('settings/all');
             const s   = res.data[0];
             setTheme(s.theme === 1);
-            setVatPercent(s.current_vat_percentage);
-            setVatDate(s.vat_effective_date);
+            setCompanyName(s.company_name    || '');
+            setCompanyAddress(s.company_address || '');
+            setCompanyPhone(s.company_phone  || '');
+            setCompanyVatNo(s.company_vat_no || '');
+            setPlaceOfSupply(s.place_of_supply || '');
+        } catch (e) { console.log(e); }
+    };
+
+    const fetchCurrentVat = async () => {
+        try {
+            const res = await axios.get('/vat/current');
+            if (res.data) setCurrentVatInfo(res.data);
         } catch (e) { console.log(e); }
     };
 
@@ -1203,13 +1206,14 @@ function SettingsPage() {
 
     const handleCompanyProfile = async () => {
         try {
-            await axios.post('/company-profile/update', {
-                company_name:  companyName,
-                address:       companyAddress,
-                tin_number:    companyTIN,
-                phone_number:  companyPhone,
+            await axios.post('/settings/update_company_profile', {
+                company_name:    companyName,
+                company_address: companyAddress,
+                company_phone:   companyPhone,
+                company_vat_no:  companyVatNo,
+                place_of_supply: placeOfSupply,
             });
-            await fetchCompanyProfile(); 
+            await fetchSettings();
             toast.success('Company profile saved!');
         } catch (e) { console.log(e); }
     };
@@ -1217,10 +1221,13 @@ function SettingsPage() {
     const handleVATSettings = async () => {
         try {
             await axios.post('settings/update_vat_settings', {
-                current_vat_percentage: vatPercent,
-                vat_effective_date:     vatDate,
+                vat_percentage: vatPercent,
+                effective_date: vatDate,
             });
-            fetchSettings();
+            await fetchCurrentVat();
+            setVatPercent('');
+            setVatDate('');
+            toast.success('VAT updated successfully!');
         } catch (e) { console.log(e); }
     };
 
@@ -1304,12 +1311,16 @@ function SettingsPage() {
                         <Input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} />
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Company TIN Number</label>
-                        <Input value={companyTIN} onChange={(e) => setCompanyTIN(e.target.value)} />
-                    </div>
-                    <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Phone</label>
                         <Input value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Company VAT No.</label>
+                        <Input value={companyVatNo} onChange={(e) => setCompanyVatNo(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Place of Supply</label>
+                        <Input value={placeOfSupply} onChange={(e) => setPlaceOfSupply(e.target.value)} />
                     </div>
                     <Button onClick={handleCompanyProfile}>Save Changes</Button>
                 </div>
@@ -1320,17 +1331,27 @@ function SettingsPage() {
                 <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
                     <Receipt className="h-4 w-4" /> VAT Settings
                 </h3>
+                {currentVatInfo && (
+                    <div className="mb-4 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
+                        <span className="text-xs text-muted-foreground">Active VAT:</span>
+                        <span className="text-sm font-semibold text-primary">{currentVatInfo.vat_percentage}%</span>
+                        <span className="text-xs text-muted-foreground">since {currentVatInfo.from_date}</span>
+                    </div>
+                )}
+                <p className="text-xs text-muted-foreground mb-3">
+                    Setting a new VAT will close the current record and start a new one from the effective date.
+                </p>
                 <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Current VAT %</label>
-                        <Input type="number" value={vatPercent} onChange={(e) => setVatPercent(e.target.value)} />
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">New VAT %</label>
+                        <Input type="number" value={vatPercent} onChange={(e) => setVatPercent(e.target.value)} placeholder="e.g. 18" />
                     </div>
                     <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Effective Date</label>
                         <DatePicker value={vatDate} onChange={setVatDate} className="w-full" />
                     </div>
                 </div>
-                <Button onClick={handleVATSettings} className="mt-3">Update VAT</Button>
+                <Button onClick={handleVATSettings} className="mt-3" disabled={!vatPercent || !vatDate}>Update VAT</Button>
             </div>
 
             <CategorySection  categories={categories} onAdd={addCategory}  onEdit={editCategory}  onDelete={deleteCategory} />

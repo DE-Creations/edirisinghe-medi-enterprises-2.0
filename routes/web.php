@@ -14,6 +14,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\UnitTypeController;
 use App\Http\Controllers\CompanyProfileController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\VatController;
 use App\Http\Controllers\GrnController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\StockController;
@@ -162,6 +163,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/change_theme',          [SettingsController::class, 'change_theme']);
         Route::post('/update_company_profile',[SettingsController::class, 'update_company_profile']);
         Route::post('/update_vat_settings',   [SettingsController::class, 'update_vat_settings']);
+    });
+
+    // ── VAT ────────────────────────────────────────────────────────────────
+    Route::prefix('/vat')->group(function () {
+        Route::get('/current',  [VatController::class, 'current']);
+        Route::get('/by-date',  [VatController::class, 'byDate']);
     });
 
     // ── Payables ───────────────────────────────────────────────────────────
