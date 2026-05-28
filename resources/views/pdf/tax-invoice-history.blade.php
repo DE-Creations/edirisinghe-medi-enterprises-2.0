@@ -340,7 +340,7 @@
                     }
                 @endphp
                 <tr>
-                    <td class="text-center">{{ $record['refNo'] }}</td>
+                    <td class="text-center">{{ $index + 1 }}</td>
                     <td class="text-center">{{ $record['invoiceItem'] }}</td>
                     <td class="text-center">{{ $record['quantity'] }}</td>
                     <td class="text-center">{{ number_format($record['unitPrice'], 2) }}</td>
@@ -352,7 +352,7 @@
 
     <!-- Totals Section -->
     <table class="totals-table">
-        <tr>
+        <tr></tr>
             <td class="text-left" style="border-right: 1px solid #000; width: 70%;">Total Value of Supply</td>
             <td class="totals-value" style="width: 20%;">{{ number_format($subtotal, 0) }}</td>
         </tr>

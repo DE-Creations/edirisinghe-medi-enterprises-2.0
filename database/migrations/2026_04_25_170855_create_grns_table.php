@@ -14,19 +14,24 @@ return new class extends Migration
         Schema::create('grns', function (Blueprint $table) {
             $table->id();
             $table->string('grn_number')->unique();
-            $table->string('supplier_id');
-            $table->string('user_id');
+            $table->unsignedBigInteger('supplier_id');
+            $table->unsignedBigInteger('user_id');
             $table->string('supplier_invoice_no')->nullable();
             $table->dateTime('received_date');
             $table->decimal('sub_total', 15, 2)->default(0);
             $table->decimal('discount', 15, 2)->default(0);
             $table->decimal('total_amount', 15, 2)->default(0);
             $table->decimal('paid_amount', 15, 2)->default(0);
-            $table->string('payment_method')->default('cash');
-            $table->string('payment_status')->default('unpaid');
-            $table->text('notes')->nullable();
+            $table->boolean('is_vat')->default(0);
+            $table->decimal('vat_amount', 15, 2)->default(0);
+            $table->unsignedBigInteger('payment_method_id')->nullable();
+            $table->enum('payment_status', ['paid', 'partial', 'unpaid'])->default('unpaid');
             $table->softDeletes();
             $table->timestamps();
+
+            $table->foreign('supplier_id')->references('id')->on('suppliers')->onDelete('cascade');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('payment_method_id')->references('id')->on('payment_methods')->onDelete('cascade');
 
             $table->index('supplier_id');
             $table->index('received_date');

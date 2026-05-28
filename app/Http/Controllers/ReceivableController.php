@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Receivable;
 
 class ReceivableController extends Controller
 {
@@ -85,6 +86,19 @@ class ReceivableController extends Controller
             'notes'          => $validated['notes'] ?? null,
             'user_id'        => $validated['user_id'],
         ]);
+
+        // Record in receivable table
+        Receivable::create([
+            'invoice_id' => $validated['reference_id'],
+            'amount'     => $validated['amount'],
+            'dateTime'   => $validated['date'],
+            'note'       => $validated['notes'] ?? 'Additional Payment',
+        ]);
+
+        // Update invoice status
+        $newTotal = $invoice->paid_amount + $collected + $validated['amount'];
+        $newStatus = $newTotal >= $invoice->grand_total ? 'paid' : 'partial';
+        $invoice->update(['status' => $newStatus]);
 
         return response()->json($payment, 201);        
     }

@@ -16,14 +16,17 @@ return new class extends Migration
             $table->string('expense_number')->unique();
             $table->date('date');
             $table->string('description');
-            $table->string('category');
+            $table->unsignedBigInteger('category_id');
             $table->decimal('amount', 15, 2);
             $table->decimal('paid_amount', 15, 2)->default(0);
             $table->string('status')->default('unpaid'); // paid/partial/unpaid
             $table->text('notes')->nullable();
-            $table->string('user_id');
+            $table->unsignedBigInteger('user_id');
             $table->softDeletes();    
             $table->timestamps();
+
+            $table->foreign('category_id')->references('id')->on('expenses_category')->onDelete('cascade');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 

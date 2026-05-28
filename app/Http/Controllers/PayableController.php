@@ -4,30 +4,30 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Grn;
-use App\Models\Payment;
 use App\Models\Expense;
+use App\Models\Payable;
 
 class PayableController extends Controller
 {
-    // get all GRNs with payment infomations
+    // get all GRNs with payment information
     public function grns() {
-        $grns = Grn::with(['supplier'])
+        $grns = Grn::with(['supplier', 'payables'])
             ->latest()
             ->get()
             ->map(function ($grn) {
-                $paid = Payment::where('reference_type', 'grn')
-                    ->where('reference_id', $grn->id)
-                    ->sum('amount');
-                $outstanding = max(0, $grn->total_amount - $paid);
+                // Use payable table as source of truth; fall back to grn.paid_amount for old GRNs
+                $payablesSum = $grn->payables->sum('amount');
+                $totalPaid   = $payablesSum > 0 ? $payablesSum : $grn->paid_amount;
+                $outstanding = max(0, $grn->total_amount - $totalPaid);
                 return [
                     'id'           => $grn->id,
                     'grn_number'   => $grn->grn_number,
                     'received_date'=> $grn->received_date,
                     'supplier'     => $grn->supplier?->name,
                     'total_amount' => $grn->total_amount,
-                    'paid'         => $paid,
+                    'paid'         => $totalPaid,
                     'outstanding'  => $outstanding,
-                    'status'       => $outstanding <= 0 ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
+                    'status'       => $outstanding <= 0 ? 'paid' : ($totalPaid > 0 ? 'partial' : 'unpaid'),
                 ];
             });
 
@@ -37,9 +37,7 @@ class PayableController extends Controller
     // get all expenses
     public function expenses() {
         $expenses = Expense::latest()->get()->map(function ($exp) {
-            $paid = Payment::where('reference_type', 'expense')
-                ->where('reference_id', $exp->id)
-                ->sum('amount');
+            $paid        = $exp->paid_amount;
             $outstanding = max(0, $exp->amount - $paid);
             return [
                 'id'             => $exp->id,
@@ -60,11 +58,21 @@ class PayableController extends Controller
 
     // get payment history for a reference
     public function paymentHistory($type, $id) {
-        $payments = Payment::where('reference_type', $type)
-            ->where('reference_id', $id)
-            ->with('user')
-            ->latest()
-            ->get();
+        if ($type === 'grn') {
+            $payments = Payable::where('grns_id', $id)
+                ->oldest('dateTime')
+                ->get()
+                ->map(fn ($p) => [
+                    'id'     => $p->id,
+                    'amount' => $p->amount,
+                    'date'   => $p->dateTime,
+                    'notes'  => $p->note,
+                    'user'   => null,
+                ]);
+        } else {
+            // Expenses track paid_amount directly — no separate payment log
+            $payments = collect([]);
+        }
         return response()->json($payments);
     } 
     
@@ -104,27 +112,12 @@ class PayableController extends Controller
             'user_id'        => $validated['user_id'],
         ]);
 
-        // If paid amount > 0, create payment record
-        if ($paidAmount > 0) {
-            Payment::create([
-                'reference_type' => 'expense',
-                'reference_id'   => $expense->id,
-                'amount'         => $paidAmount,
-                'date'           => $validated['date'],
-                'notes'          => 'Initial payment on creation',
-                'user_id'        => $validated['user_id'],
-            ]);
-        }
-
         return response()->json($expense, 201);
     }   
     
     public function deleteExpense($id) {
 
         $expense = Expense::findOrFail($id);
-        Payment::where('reference_type', 'expense')
-               ->where('reference_id', $id)
-               ->delete();
         $expense->delete();
         return response()->json(['message' => 'Expense deleted']);
     }
@@ -141,28 +134,52 @@ class PayableController extends Controller
             'user_id'        => 'required|exists:users,id',
         ]);
 
-        // Calculate total paid so far
-        $totalPaid = Payment::where('reference_type', $validated['reference_type'])
-            ->where('reference_id', $validated['reference_id'])
-            ->sum('amount');
-
         if ($validated['reference_type'] === 'grn') {
             $ref = Grn::findOrFail($validated['reference_id']);
             $total = $ref->total_amount;
+            $initialPaid = $ref->paid_amount;
         } else {
             $ref = Expense::findOrFail($validated['reference_id']);
             $total = $ref->amount;
-        }  
-        
+            $initialPaid = $ref->paid_amount;
+        }
+
+        // Calculate total paid — GRN uses payable table; expense uses paid_amount column
+        if ($validated['reference_type'] === 'grn') {
+            $payablesSum = Payable::where('grns_id', $validated['reference_id'])->sum('amount');
+            $totalPaid   = $payablesSum > 0 ? $payablesSum : $initialPaid;
+        } else {
+            $totalPaid = $initialPaid; // expense.paid_amount already tracks cumulative paid
+        }
+
         $outstanding = $total - $totalPaid;
         if ($validated['amount'] > $outstanding) {
             return response()->json([
                 'message' => "Payment exceeds outstanding amount of Rs. {$outstanding}"
             ], 422);
-        } 
-        
-        $payment = Payment::create($validated);
+        }
 
-        return response()->json($payment, 201);        
+        if ($validated['reference_type'] === 'grn') {
+            $grn          = $ref;
+            $newTotalPaid = $totalPaid + $validated['amount'];
+            $newStatus    = $newTotalPaid >= $grn->total_amount ? 'paid' : 'partial';
+            $grn->update(['payment_status' => $newStatus]);
+
+            $payable = Payable::create([
+                'grns_id'  => $validated['reference_id'],
+                'amount'   => $validated['amount'],
+                'dateTime' => $validated['date'],
+                'note'     => $validated['notes'] ?? 'Additional Payment',
+            ]);
+
+            return response()->json($payable, 201);
+        } else {
+            // Expense — update paid_amount directly
+            $newTotalPaid = $totalPaid + $validated['amount'];
+            $newStatus    = $newTotalPaid >= $total ? 'paid' : 'partial';
+            $ref->update(['paid_amount' => $newTotalPaid, 'status' => $newStatus]);
+
+            return response()->json($ref->fresh(), 201);
+        }        
     }
 }

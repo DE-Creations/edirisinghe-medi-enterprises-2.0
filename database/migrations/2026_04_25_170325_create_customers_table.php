@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('contact_no');
             $table->text('address')->nullable();
-            $table->tinyInteger('is_vat')->default(0);
+            $table->boolean('is_vat')->default(0);
             
             $table->decimal('balance_amount', 15, 2)->default(0);
             $table->timestamps();

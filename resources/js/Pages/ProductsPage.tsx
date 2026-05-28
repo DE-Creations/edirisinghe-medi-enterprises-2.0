@@ -1,13 +1,15 @@
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
+import BarcodeComponent from 'react-barcode';
 import { Button } from '@/components/ui/button';
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Combobox } from '@/components/ui/combobox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import SearchBar from '@/components/shared/SearchBar';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
-import { Plus, Edit, Trash2, Barcode, AlertTriangle } from 'lucide-react';
+import { Plus, Edit, Trash2, Barcode, AlertTriangle, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import axios from 'axios';
 
@@ -62,6 +64,19 @@ function ProductsPage() {
   const [newBrandName, setNewBrandName] = useState('');
   const [newCatName, setNewCatName] = useState('');
   const [newUnitTypeName, setNewUnitTypeName] = useState('');
+
+  const [printProduct, setPrintProduct] = useState<Product | null>(null);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [copies, setCopies] = useState(1);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    pageStyle: `
+            @page { size: 50mm 20mm; margin: 0; }
+      html, body { margin: 0; padding: 0; background: white; }
+    `,
+  });
 
   useEffect(() => {
     fetchAll();
@@ -235,6 +250,11 @@ function ProductsPage() {
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         <div className="flex justify-end gap-1">
+                                            <button onClick={() => { setPrintProduct(p); setShowPrintPreview(true); }}
+                                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                                title="Print Barcode">
+                                                <Printer className="h-3.5 w-3.5" />
+                                            </button>
                                             <button onClick={() => openEdit(p)}
                                                 className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                                 <Edit className="h-3.5 w-3.5" />
@@ -410,6 +430,106 @@ function ProductsPage() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => { setShowNewUnitType(false); setNewUnitTypeName(''); }}>Cancel</Button>
                         <Button onClick={handleAddUnitType}>Add Unit Type</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Hidden print target — exact 50mm×20mm per label, off-screen */}
+            <div style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1 }}>
+                <div ref={printRef}>
+                    {printProduct && Array.from({ length: copies }).map((_, i) => (
+                        <div key={i} style={{
+                            width: '50mm', height: '20mm',
+                            background: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxSizing: 'border-box',
+                            overflow: 'hidden',
+                            pageBreakAfter: i < copies - 1 ? 'always' : 'avoid',
+                            breakAfter: i < copies - 1 ? 'page' : 'avoid',
+                        }}>
+                            <div style={{
+                                width: '46mm',
+                                height: '16mm',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                            }}>
+                                <div style={{ fontSize: '4pt', color: '#888', textAlign: 'center', lineHeight: 1, marginBottom: '0.6mm', textTransform: 'lowercase', width: '100%' }}>
+                                    Edirisinghe Medi Enterprises
+                                </div>
+                                <div style={{ fontSize: '5.5pt', fontWeight: 700, textAlign: 'center', lineHeight: 1.1, color: 'black', marginBottom: '0.6mm', maxWidth: '100%', wordBreak: 'break-word' }}>
+                                    {printProduct.generic_name}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                                    <BarcodeComponent
+                                        value={printProduct.barcode_value}
+                                        width={1.1}
+                                        height={27}
+                                        fontSize={6}
+                                        margin={0}
+                                        background="#ffffff"
+                                        displayValue={true} />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Print Barcode Dialog — visual preview + copies */}
+            <Dialog open={showPrintPreview} onOpenChange={(open) => { if (!open) { setShowPrintPreview(false); setCopies(1); } }}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader><DialogTitle>Print Barcode Label</DialogTitle></DialogHeader>
+                    <div className="flex items-center justify-center p-6 bg-muted/40 rounded-lg">
+                        {printProduct ? (
+                            <div style={{
+                                width: '220px', height: '96px',
+                                background: 'white',
+                                borderRadius: '12px',
+                                border: '1px solid #e5e7eb',
+                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                                display: 'flex', flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '8px 10px',
+                                boxSizing: 'border-box',
+                                overflow: 'hidden',
+                            }}>
+                                <span style={{ fontSize: '8px', color: '#9ca3af', textAlign: 'center', lineHeight: 1, marginBottom: '4px', textTransform: 'lowercase', display: 'block', width: '100%' }}>Edirisinghe Medi Enterprises</span>
+                                <span style={{ fontSize: '12px', fontWeight: 700, textAlign: 'center', lineHeight: 1.1, color: '#000', marginBottom: '5px', wordBreak: 'break-word', display: 'block', width: '100%' }}>{printProduct.generic_name}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                                        <BarcodeComponent
+                                            value={printProduct.barcode_value}
+                                            width={1.49}
+                                            height={38}
+                                            fontSize={9}
+                                            margin={0}
+                                            background="#ffffff"
+                                            displayValue={true} />
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">No product selected.</p>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3 px-1">
+                        <span className="text-sm text-muted-foreground shrink-0">Copies</span>
+                        <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={copies}
+                            onChange={(e) => setCopies(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                            className="w-20 border border-input rounded-md px-2 py-1 text-sm text-center bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+                        <span className="text-xs text-muted-foreground">(max 100)</span>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setShowPrintPreview(false); setCopies(1); }}>Close</Button>
+                        <Button onClick={handlePrint} disabled={!printProduct}><Printer className="h-4 w-4 mr-2" />Print {copies > 1 ? `${copies} Labels` : 'Label'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

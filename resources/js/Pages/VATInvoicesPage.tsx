@@ -1,362 +1,398 @@
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useState } from 'react';
-import {
-  initialCustomers,
-  initialInvoices,
-  initialVatInvoices,
-  nextVatInvoiceNumber,
-  type Customer,
-  type VatInvoice,
-} from '@/data/mockData';
-import SearchBar from '@/components/shared/SearchBar';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import Modal from '@/components/shared/Modal';
-import ConfirmDialog from '@/components/shared/ConfirmDialog';
-import { Plus, Eye, Trash2 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Search, Printer, AlertCircle, CheckCircle2 } from 'lucide-react';
+import axios from 'axios';
 
-function VATInvoicesPage() {
-  const [vatInvoices, setVatInvoices] = useState<VatInvoice[]>(initialVatInvoices);
-  const [search, setSearch] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+interface Customer { id: number; name: string; }
+interface InvoiceRow { id: number; invoice_number: string; invoice_date: string; grand_total: number; sub_total: number; is_vat_invoice_issued: boolean; }
+interface InvoiceItem { id: number; quantity: number; unit_price: number; stock_batch?: { product?: { generic_name: string } }; }
+interface InvoiceDetail { id: number; invoice_number: string; invoice_date: string; sub_total: number; grand_total: number; discount: number; is_vat_invoice_issued: boolean; customer?: { id: number; name: string; contact_no: string; address: string }; items: InvoiceItem[]; }
+interface CustomerVat { company_name?: string; nick_name?: string; company_address?: string; company_contact?: string; vat_number?: string; }
+interface InvoiceDataResponse { invoice: InvoiceDetail; customer_vat: CustomerVat | null; vat_percentage: number; vat_amount: number; total_amount: number; }
 
-  // Create modal state
+
+export default function VATInvoicesPage() {
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
+  const [searching, setSearching] = useState(false);
+
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState('');
+  const [invoiceData, setInvoiceData] = useState<InvoiceDataResponse | null>(null);
+  const [loadingData, setLoadingData] = useState(false);
 
-  const vatCustomers = initialCustomers.filter((c) => c.isVat);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historySearch, setHistorySearch] = useState('');
 
-  const customerInvoices = selectedCustomerId
-    ? initialInvoices.filter((inv) => inv.customerId === selectedCustomerId)
-    : [];
+  useEffect(() => {
+    axios.get('/vat-invoice/customers')
+      .then(res => setCustomers(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setCustomers([]));
+    fetchHistory();
+  }, []);
 
-  const filtered = vatInvoices.filter(
-    (vi) =>
-      vi.vatInvoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-      vi.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      vi.invoiceNumber.toLowerCase().includes(search.toLowerCase()),
-  );
+  const handleSearchInvoices = async () => {
+    if (!selectedCustomerId || !selectedYear || !selectedMonth) return;
+    setSearching(true);
+    setHasSearched(false);
+    setInvoices([]);
+    setSelectedInvoiceId('');
+    setInvoiceData(null);
+    try {
+      const res = await axios.post('/vat-invoice/search', {
+        customer_id: parseInt(selectedCustomerId),
+        year: parseInt(selectedYear),
+        month: parseInt(selectedMonth),
+      });
+      setInvoices(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSearching(false);
+      setHasSearched(true);
+    }
+  };
 
-  const openPdfForm = (action: string, payload: object) => {
+  const handleInvoiceSelect = async (id: string) => {
+    setSelectedInvoiceId(id);
+    setInvoiceData(null);
+    if (!id) return;
+    setLoadingData(true);
+    try {
+      const res = await axios.get<InvoiceDataResponse>('/vat-invoice/data/' + id);
+      setInvoiceData(res.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const fetchHistory = async () => {
+    try {
+      const res = await axios.get('/vat-invoice/history', { params: { search: historySearch } });
+      const data = res.data;
+      setHistory(Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []);
+    } catch (e) {
+      setHistory([]);
+    }
+  };
+
+  useEffect(() => {
+    const t = setTimeout(() => fetchHistory(), 500);
+    return () => clearTimeout(t);
+  }, [historySearch]);
+
+  const getCsrfToken = (): string => {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) return meta.getAttribute('content') || '';
+    const cookieMatch = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+  };
+
+  const handlePrint = () => {
+    if (!invoiceData) return;
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = action;
+    form.action = '/vat-invoice/generate';
     form.target = '_blank';
-    const dataInput = document.createElement('input');
-    dataInput.type = 'hidden';
-    dataInput.name = 'data';
-    dataInput.value = JSON.stringify(payload);
-    form.appendChild(dataInput);
+
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = '_token';
+      csrfInput.value = csrfToken;
+      form.appendChild(csrfInput);
+    }
+
+    const idInput = document.createElement('input');
+    idInput.type = 'hidden';
+    idInput.name = 'invoice_id';
+    idInput.value = selectedInvoiceId;
+    form.appendChild(idInput);
+
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
-  };
 
-  const buildPayload = (vi: VatInvoice, customer: Customer | undefined) => ({
-    taxInvoiceNumber: vi.vatInvoiceNumber,
-    printedDateTime: vi.date + 'T00:00:00',
-    companyVatNo: 'VAT-COMPANY-001',
-    companyName: 'Edirisinghe Medi Enterprises',
-    companyAddress: 'No. 123, Health Street, Colombo',
-    companyPhone: '+94 11 234 5678',
-    clientVatNo: customer?.vatNumber ?? '',
-    clientName: vi.customerName,
-    clientAddress: customer?.companyAddress ?? customer?.address ?? '',
-    clientPhone: customer?.contactNumber ?? customer?.mobile ?? '',
-    placeOfSupply: customer?.companyAddress ?? customer?.address ?? '',
-    records: vi.records,
-    subtotal: vi.subtotal,
-    vatPercentage: vi.vatPercentage,
-    vatAmount: vi.vatAmount,
-    grandTotal: vi.grandTotal,
-    paymentMode: vi.paymentMode,
-  });
-
-  const handleGenerate = () => {
-    const customer = vatCustomers.find((c) => c.id === selectedCustomerId);
-    const invoice = customerInvoices.find((inv) => inv.id === selectedInvoiceId);
-    if (!customer || !invoice) return;
-
-    const nickName =
-      customer.nickName ?? customer.name.replace(/\s+/g, '').toUpperCase().slice(0, 8);
-    const vatInvoiceNumber = nextVatInvoiceNumber(nickName);
-
-    const VAT_PERCENT = 18;
-    const subtotal = invoice.items.reduce((sum, item) => sum + item.qty * item.price, 0);
-    const vatAmount = Math.round((subtotal * VAT_PERCENT) / 100);
-    const grandTotal = subtotal + vatAmount;
-
-    const records = invoice.items.map((item, idx) => ({
-      refNo: String(idx + 1),
-      invoiceItem: item.name,
-      quantity: item.qty,
-      unitPrice: item.price,
-      amountExclVat: item.qty * item.price,
-    }));
-
-    const newVatInvoice: VatInvoice = {
-      id: String(Date.now()),
-      vatInvoiceNumber,
-      customerId: customer.id,
-      customerName: customer.companyName ?? customer.name,
-      companyNickName: nickName,
-      invoiceId: invoice.id,
-      invoiceNumber: invoice.number,
-      date: new Date().toISOString().split('T')[0],
-      records,
-      subtotal,
-      vatPercentage: VAT_PERCENT,
-      vatAmount,
-      grandTotal,
-      paymentMode: invoice.paymentMethod === 'cash' ? 'Cash' : 'Credit Card',
-    };
-
-    openPdfForm('/vat-invoices/pdf', buildPayload(newVatInvoice, customer));
-    setVatInvoices((prev) => [...prev, newVatInvoice]);
-    setShowCreate(false);
-    setSelectedCustomerId('');
+    setInvoiceData(null);
     setSelectedInvoiceId('');
+    setTimeout(() => {
+      handleSearchInvoices();
+      fetchHistory();
+    }, 1000);
   };
 
-  const handleView = (vi: VatInvoice) => {
-    const customer = vatCustomers.find((c) => c.id === vi.customerId);
-    openPdfForm('/vat-invoices/pdf/history', buildPayload(vi, customer));
-  };
+  const years = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
+  const months = Array.from({ length: 12 }, (_, i) => ({
+    value: (i + 1).toString().padStart(2, '0'),
+    label: new Date(2000, i, 1).toLocaleString('default', { month: 'long' }),
+  }));
 
-  const handleDelete = (id: string) => {
-    setVatInvoices((prev) => prev.filter((vi) => vi.id !== id));
-  };
-
-  const selectedInvoice = customerInvoices.find((i) => i.id === selectedInvoiceId);
+  const inv = invoiceData?.invoice;
+  const cvat = invoiceData?.customer_vat;
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="w-full sm:w-72">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search VAT invoices..." />
-        </div>
-        <Button onClick={() => setShowCreate(true)} className="gap-2 ml-auto">
-          <Plus className="h-4 w-4" /> New VAT Invoice
-        </Button>
-      </div>
-
-      {/* Table */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">VAT Invoice #</th>
-                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Date</th>
-                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Customer</th>
-                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Invoice Ref</th>
-                <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Grand Total</th>
-                <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
-                    No VAT invoices found
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((vi) => (
-                  <tr key={vi.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                    <td className="px-4 py-3 text-sm font-medium text-primary">{vi.vatInvoiceNumber}</td>
-                    <td className="px-4 py-3 text-sm">{vi.date}</td>
-                    <td className="px-4 py-3 text-sm">{vi.customerName}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{vi.invoiceNumber}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-right">
-                      Rs. {vi.grandTotal.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleView(vi)}
-                          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                          title="View PDF"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteId(vi.id)}
-                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Create Modal */}
-      <Modal
-        open={showCreate}
-        onClose={() => {
-          setShowCreate(false);
-          setSelectedCustomerId('');
-          setSelectedInvoiceId('');
-        }}
-        title="New VAT Invoice"
-        size="md"
-      >
-        <div className="space-y-4">
-          {/* Customer Select */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-              Customer
-            </label>
-            <Select
-              value={selectedCustomerId}
-              onValueChange={(v) => {
-                setSelectedCustomerId(v);
-                setSelectedInvoiceId('');
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select VAT customer..." />
-              </SelectTrigger>
-              <SelectContent>
-                {vatCustomers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.companyName ?? c.name}
-                    {c.nickName && (
-                      <span className="ml-1 text-muted-foreground">({c.nickName})</span>
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Invoice Select */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-              Invoice
-            </label>
-            <Select
-              value={selectedInvoiceId}
-              onValueChange={setSelectedInvoiceId}
-              disabled={!selectedCustomerId}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    !selectedCustomerId
-                      ? 'Select a customer first'
-                      : customerInvoices.length === 0
-                        ? 'No invoices for this customer'
-                        : 'Select invoice...'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {customerInvoices.map((inv) => (
-                  <SelectItem key={inv.id} value={inv.id}>
-                    {inv.number} — {inv.date} — Rs. {inv.total.toLocaleString()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Invoice Summary Preview */}
-          {selectedInvoice && (() => {
-            const subtotal = selectedInvoice.items.reduce(
-              (s, i) => s + i.qty * i.price,
-              0,
-            );
-            const vatAmount = Math.round((subtotal * 18) / 100);
-            return (
-              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Invoice Summary
-                </p>
-                <div className="space-y-1">
-                  {selectedInvoice.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">
-                        {item.name} × {item.qty}
-                      </span>
-                      <span>Rs. {(item.qty * item.price).toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="border-t border-border pt-2 space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Sub Total</span>
-                    <span>Rs. {subtotal.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">VAT (18%)</span>
-                    <span>Rs. {vatAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-semibold">
-                    <span>Grand Total</span>
-                    <span>Rs. {(subtotal + vatAmount).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCreate(false);
-                setSelectedCustomerId('');
-                setSelectedInvoiceId('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={!selectedCustomerId || !selectedInvoiceId}
-              onClick={handleGenerate}
-            >
-              Generate VAT Invoice
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Delete Confirm */}
-      <ConfirmDialog
-        open={!!deleteId}
-        onClose={() => setDeleteId(null)}
-        onConfirm={() => deleteId && handleDelete(deleteId)}
-        message="Delete this VAT invoice? This action cannot be undone."
-      />
-    </div>
-  );
-}
-
-export default function WrappedVATInvoicesPage() {
-  return (
-    <>
+    <AppShell>
       <Head title="VAT Invoices" />
-      <VATInvoicesPage />
-    </>
+      <div className="p-6 max-w-5xl mx-auto space-y-6">
+        <h1 className="text-3xl font-bold">VAT Invoices</h1>
+        <Tabs defaultValue="generate" className="w-full">
+          <TabsList>
+            <TabsTrigger value="generate">Generate VAT Invoice</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+          </TabsList>
+
+          {/* ── Generate Tab ─────────────────────────────────────────────── */}
+          <TabsContent value="generate" className="space-y-5 mt-4">
+
+            {/* Section 1 – Search */}
+            <Card>
+              <CardHeader><CardTitle>Step 1 — Search Invoices</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-4 items-end">
+                  <div className="flex-1 min-w-[200px]">
+                    <Label className="mb-1 block">Customer</Label>
+                    <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                      <SelectTrigger><SelectValue placeholder="Select Customer" /></SelectTrigger>
+                      <SelectContent>
+                        {customers.map(c => (
+                          <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-36">
+                    <Label className="mb-1 block">Year</Label>
+                    <Select value={selectedYear} onValueChange={setSelectedYear}>
+                      <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                      <SelectContent>
+                        {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-40">
+                    <Label className="mb-1 block">Month</Label>
+                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                      <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
+                      <SelectContent>
+                        {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleSearchInvoices} disabled={searching || !selectedCustomerId}>
+                    <Search className="w-4 h-4 mr-2" />
+                    {searching ? 'Searching…' : 'Search'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Section 2 – Invoice Selector */}
+            {hasSearched && (
+              <Card>
+                <CardHeader><CardTitle>Step 2 — Select Invoice</CardTitle></CardHeader>
+                <CardContent>
+                  {invoices.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No invoices found for the selected customer, year and month.</p>
+                  ) : (
+                    <Select value={selectedInvoiceId} onValueChange={handleInvoiceSelect}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select an invoice…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {invoices.map(inv => (
+                          <SelectItem key={inv.id} value={inv.id.toString()}>
+                            {inv.invoice_number} &nbsp;|&nbsp; {inv.invoice_date} &nbsp;|&nbsp; LKR {Number(inv.grand_total).toFixed(2)}
+                            {inv.is_vat_invoice_issued ? '  ✓ VAT issued' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Sections 3‑5 — Invoice Details (shown when an invoice is selected) */}
+            {loadingData && (
+              <p className="text-muted-foreground text-sm text-center">Loading invoice data…</p>
+            )}
+
+            {invoiceData && !loadingData && (
+              <>
+                {/* Section 3 – Customer / Company Info */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Step 3 — Customer &amp; Company Details</CardTitle>
+                      {inv?.is_vat_invoice_issued && (
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> VAT Invoice Already Issued
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Customer</p>
+                        <p className="font-medium">{inv?.customer?.name}</p>
+                        <p className="text-sm">{inv?.customer?.contact_no}</p>
+                        <p className="text-sm">{inv?.customer?.address}</p>
+                      </div>
+                      {cvat && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Company (VAT)</p>
+                          <p className="font-medium">{cvat.company_name}</p>
+                          <p className="text-sm">{cvat.company_address}</p>
+                          <p className="text-sm">{cvat.company_contact}</p>
+                          <p className="text-sm font-mono">VAT No: {cvat.vat_number}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Section 4 – Invoice Items */}
+                <Card>
+                  <CardHeader><CardTitle>Step 4 — Invoice Items</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="p-2 text-left">#</th>
+                            <th className="p-2 text-left">Product</th>
+                            <th className="p-2 text-right">Qty</th>
+                            <th className="p-2 text-right">Unit Price (LKR)</th>
+                            <th className="p-2 text-right">Amount (LKR)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inv?.items?.map((item, idx) => (
+                            <tr key={item.id} className="border-b hover:bg-muted/30">
+                              <td className="p-2">{idx + 1}</td>
+                              <td className="p-2">{item.stock_batch?.product?.generic_name ?? 'N/A'}</td>
+                              <td className="p-2 text-right">{item.quantity}</td>
+                              <td className="p-2 text-right">{Number(item.unit_price).toFixed(2)}</td>
+                              <td className="p-2 text-right">{(item.quantity * item.unit_price).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Section 5 – Totals / Summary + Print */}
+                <Card>
+                  <CardHeader><CardTitle>Step 5 — VAT Summary</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="max-w-sm ml-auto space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Sub Total</span>
+                        <span>LKR {Number(inv?.sub_total).toFixed(2)}</span>
+                      </div>
+                      {(inv?.discount ?? 0) > 0 && (
+                        <div className="flex justify-between text-red-600">
+                          <span>Discount</span>
+                          <span>- LKR {Number(inv?.discount).toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">VAT ({invoiceData.vat_percentage}%)</span>
+                        <span>LKR {Number(invoiceData.vat_amount).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold border-t pt-2 text-base">
+                        <span>Total (incl. VAT)</span>
+                        <span>LKR {Number(invoiceData.total_amount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="pt-0">
+                    {inv?.is_vat_invoice_issued ? (
+                      <div className="flex items-center gap-2 text-amber-600 text-sm w-full">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        A VAT invoice has already been issued for this regular invoice.
+                      </div>
+                    ) : (
+                      <Button onClick={handlePrint} className="w-full" size="lg">
+                        <Printer className="w-5 h-5 mr-2" /> Print VAT Invoice
+                      </Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              </>
+            )}
+          </TabsContent>
+
+          {/* ── History Tab ──────────────────────────────────────────────── */}
+          <TabsContent value="history" className="space-y-6 mt-4">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Generated VAT Invoices</CardTitle>
+                  <div className="w-64">
+                    <Input placeholder="Search by VAT invoice no…" value={historySearch} onChange={e => setHistorySearch(e.target.value)} />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="p-2">Date</th>
+                        <th className="p-2">VAT Invoice No</th>
+                        <th className="p-2">Regular Invoice No</th>
+                        <th className="p-2">Customer</th>
+                        <th className="p-2 text-right">Total (LKR)</th>
+                        <th className="p-2 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map(h => (
+                        <tr key={h.id} className="border-b hover:bg-muted/30">
+                          <td className="p-2">{new Date(h.created_at).toLocaleDateString()}</td>
+                          <td className="p-2 font-mono text-xs">{h.vat_invoice_number}</td>
+                          <td className="p-2">{h.invoice?.invoice_number}</td>
+                          <td className="p-2">{h.customer?.name}</td>
+                          <td className="p-2 text-right">{Number(h.total_amount).toFixed(2)}</td>
+                          <td className="p-2 text-center">
+                            <form method="POST" action="/vat-invoice/reprint" target="_blank" className="inline">
+                              <input type="hidden" name="_token" value={getCsrfToken()} />
+                              <input type="hidden" name="id" value={h.id} />
+                              <Button type="submit" variant="ghost" size="sm" title="Reprint">
+                                <Printer className="w-4 h-4" />
+                              </Button>
+                            </form>
+                          </td>
+                        </tr>
+                      ))}
+                      {history.length === 0 && (
+                        <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No VAT invoices found.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AppShell>
   );
 }
-
-(WrappedVATInvoicesPage as any).layout = (page: React.ReactNode) => <AppShell>{page}</AppShell>;
-

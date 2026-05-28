@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('contact_no');
             $table->string('email');
             $table->text('address');
-            $table->string('company_id');
+            $table->boolean('is_vat')->default(0);
             $table->softDeletes();
             $table->timestamps();
         });

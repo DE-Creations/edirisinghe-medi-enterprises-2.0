@@ -16,9 +16,11 @@ class SettingsSeeder extends Seeder
     {
         DB::table('settings')->insert([
             'theme' => false,
-            'company_name' => 'PharmaPOS Pharmacy',
-            'company_address' => '123 Health Street, Colombo 03',
-            'company_phone' => '+94 11 234 5678',
+            'company_name' => 'Edirisinghe Medi Enterprises',
+            'company_address' => '343/A, Thunnana, Hanwella, Sri Lanka',
+            'company_phone' => '0777471563',
+            'company_vat_no' => '1026589348 - 7000',
+            'place_of_supply' => 'Thunnana',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

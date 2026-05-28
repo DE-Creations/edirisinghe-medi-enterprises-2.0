@@ -587,13 +587,26 @@ import { FloatingInput } from '@/components/ui/floating-input';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker, ExpiryDatePicker } from '@/components/ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { Trash2, Printer, Save, Plus, Search, Package, Barcode } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import axios from 'axios';
 
 // --- Types ---
-interface Supplier { id: number; name: string; }
+interface Supplier { id: number; name: string; is_vat: number; }
+interface NewSupplierForm {
+    name?: string;
+    contact_no?: string;
+    email?: string;
+    address?: string;
+    is_vat?: number;
+    vat_company_name?: string;
+    vat_nick_name?: string;
+    vat_company_address?: string;
+    vat_company_contact?: string;
+    vat_number?: string;
+}
 interface Product {
     id: number;
     generic_name: string;
@@ -638,7 +651,8 @@ function GRNPage() {
     const [items, setItems] = useState<GrnItem[]>([]);
     const [paidAmount, setPaidAmount] = useState('');
     const [discount, setDiscount] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'cheque'>('cash');
+    const [paymentMethodId, setPaymentMethodId] = useState<string>('');
+    const [paymentMethods, setPaymentMethods] = useState<{ id: number; name: string }[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [saving, setSaving] = useState(false);
@@ -661,6 +675,10 @@ function GRNPage() {
     const [newBrandNameGrn,    setNewBrandNameGrn]    = useState('');
     const [newCatNameGrn,      setNewCatNameGrn]      = useState('');
     const [newUnitTypeNameGrn, setNewUnitTypeNameGrn] = useState('');
+
+    // Add Supplier from GRN
+    const [showAddSupplierGrn, setShowAddSupplierGrn] = useState(false);
+    const [supplierFormGrn,    setSupplierFormGrn]    = useState<NewSupplierForm>({});
 
     const handleAddBrandGrn = async () => {
         if (!newBrandNameGrn.trim()) return;
@@ -695,13 +713,42 @@ function GRNPage() {
         } catch (e: any) { console.log(e.response?.data); }
     };
 
+    const handleAddSupplierGrn = async () => {
+        if (!supplierFormGrn.name?.trim()) return;
+        try {
+            const res = await axios.post('/suppliers/store', {
+                name:                supplierFormGrn.name,
+                contact_no:          supplierFormGrn.contact_no,
+                email:               supplierFormGrn.email,
+                address:             supplierFormGrn.address,
+                is_vat:              supplierFormGrn.is_vat ?? 0,
+                vat_company_name:    supplierFormGrn.vat_company_name,
+                vat_nick_name:       supplierFormGrn.vat_nick_name,
+                vat_company_address: supplierFormGrn.vat_company_address,
+                vat_company_contact: supplierFormGrn.vat_company_contact,
+                vat_number:          supplierFormGrn.vat_number,
+            });
+            setSuppliers((prev) => [...prev, { id: res.data.id, name: res.data.name, is_vat: res.data.is_vat }]);
+            setSupplierId(String(res.data.id));
+            setShowAddSupplierGrn(false);
+            setSupplierFormGrn({});
+            toast.success(`Supplier "${res.data.name}" added!`);
+        } catch (e: any) {
+            toast.error(e.response?.data?.message || 'Failed to add supplier.');
+        }
+    };
+
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Totals
-    const subTotal        = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
-    const discountedTotal = Math.max(0, subTotal - Number(discount || 0));
+    const subTotal          = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+    const discountNum       = Number(discount || 0);
+    const discountedTotal   = Math.max(0, subTotal - discountNum);
     const [vatRate, setVatRate] = useState(0);
-    const vatAmount  = Math.round(discountedTotal * vatRate / 100);
+    const selectedSupplierIsVat = suppliers.find((s) => String(s.id) === supplierId)?.is_vat === 1;
+    const vatAmount  = selectedSupplierIsVat && vatRate > 0
+        ? Math.round((discountedTotal / 100) * vatRate)
+        : 0;
     const grandTotal = discountedTotal + vatAmount;
     const balance    = grandTotal - Number(paidAmount || 0);
 
@@ -732,6 +779,7 @@ function GRNPage() {
             setCategories(res.data.categories || []);
             setBrands(res.data.brands || []);
             setUnitTypes(res.data.unit_types || []);
+            setPaymentMethods(res.data.payment_methods || []);
             if (res.data.next_number) setGrnNum(res.data.next_number);
         } catch (e: any) { console.log(e.response?.data); }
     };
@@ -855,10 +903,12 @@ function GRNPage() {
                 supplier_invoice_no: invoiceNo || null,
                 received_date: grnDate,
                 sub_total: subTotal,
-                discount: Number(discount || 0),
+                discount: discountNum,
                 total_amount: grandTotal,
                 paid_amount: Number(paidAmount || 0),
-                payment_method: paymentMethod,
+                payment_method_id: paymentMethodId ? Number(paymentMethodId) : null,
+                is_vat: selectedSupplierIsVat ? 1 : 0,
+                vat_amount: vatAmount,
                 items: items.map((i) => ({
                     product_id: i.productId,
                     quantity: i.qty,
@@ -873,20 +923,7 @@ function GRNPage() {
             toast.success('GRN saved successfully!', { id: toastId });
 
             if (print) {
-                // ✅ Open print dialog with GRN data
-                printGRN({
-                    grn_number: grnNum,
-                    received_date: grnDate,
-                    supplier: suppliers.find((s) => String(s.id) === supplierId)?.name || '',
-                    invoice_no: invoiceNo,
-                    items,
-                    sub_total: subTotal,
-                    discount: Number(discount || 0),
-                    total_amount: grandTotal,
-                    paid_amount: Number(paidAmount || 0),
-                    payment_method: paymentMethod,
-                    received_by: user?.name || '',
-                });
+                window.open('/grn/print/' + res.data.id, '_blank');
             }
 
             // Reset
@@ -895,7 +932,7 @@ function GRNPage() {
             setInvoiceNo('');
             setDiscount('');
             setPaidAmount('');
-            setPaymentMethod('cash');
+            setPaymentMethodId('');
             await fetchNextNumber();
 
         } catch (error: any) {
@@ -1059,190 +1096,261 @@ function GRNPage() {
     const unitTypeOptions = unitTypes.map((u) => ({ value: String(u.id), label: u.name }));
 
     return (
-        <div className="w-[80vw] mx-auto space-y-4 animate-fade-in">
-            <div className="bg-card rounded-xl border border-border p-5">
+        <div className="max-w-[1400px] mx-auto px-6 py-5 space-y-5 animate-fade-in">
 
-                {/* Header Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+            {/* ── Page Header ── */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Purchase</p>
+                    <h1 className="text-xl font-bold tracking-tight">New Goods Received Note</h1>
+                </div>
+                <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono bg-muted px-3 py-1.5 rounded-lg border font-semibold tracking-wide">
+                        {grnNum}
+                    </span>
+                    <Button onClick={() => handleSave(false)} disabled={saving}
+                        variant="outline" className="gap-2 border-primary/30 text-primary hover:bg-primary/5">
+                        <Save className="h-4 w-4" />
+                        {saving ? 'Saving...' : 'Save GRN'}
+                    </Button>
+                    <Button onClick={() => handleSave(true)} disabled={saving} className="gap-2">
+                        <Printer className="h-4 w-4" /> Save & Print
+                    </Button>
+                </div>
+            </div>
+
+            {/* ── GRN Info Card ── */}
+            <div className="bg-card rounded-2xl border border-border p-5">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="h-4 w-1 rounded-full bg-primary" />
+                    <h2 className="text-sm font-semibold">GRN Information</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">GRN Number</label>
-                        <Input value={grnNum} readOnly className="bg-muted font-mono" />
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">GRN Date</label>
+                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">GRN Date</label>
                         <DatePicker value={grnDate} onChange={setGrnDate} className="w-full" />
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Supplier</label>
-                        <Combobox options={supplierOptions} value={supplierId}
-                            onValueChange={setSupplierId}
-                            placeholder="Select supplier"
-                            searchPlaceholder="Search suppliers..." />
+                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Supplier</label>
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <Combobox options={supplierOptions} value={supplierId}
+                                    onValueChange={setSupplierId}
+                                    placeholder="Select supplier"
+                                    searchPlaceholder="Search suppliers..." />
+                            </div>
+                            <Button variant="outline" size="icon"
+                                onClick={() => { setSupplierFormGrn({}); setShowAddSupplierGrn(true); }}>
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                            Invoice No. (optional)
+                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                            Invoice No. <span className="text-muted-foreground/60">(optional)</span>
                         </label>
                         <Input value={invoiceNo}
                             onChange={(e) => setInvoiceNo(e.target.value)}
                             placeholder="Supplier invoice #" />
                     </div>
                 </div>
+                <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    Received by: <span className="font-medium text-foreground ml-0.5">{user?.name}</span>
+                </div>
+            </div>
 
-                {/* Received by */}
-                <div className="mb-3 text-xs text-muted-foreground">
-                    Received by: <span className="font-medium text-foreground">{user?.name}</span>
+            {/* ── Products Card ── */}
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+
+                {/* Products header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                    <div className="flex items-center gap-2">
+                        <div className="h-4 w-1 rounded-full bg-primary" />
+                        <h2 className="text-sm font-semibold">Products</h2>
+                        {items.length > 0 && (
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                                {items.length} item{items.length !== 1 ? 's' : ''}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setShowProductSearch(true)} className="gap-1.5 h-8 text-xs">
+                            <Search className="h-3.5 w-3.5" /> Search
+                        </Button>
+                        <Button variant="outline" size="sm"
+                            onClick={() => { setNewProductForm({ generic_name: '', barcode_value: '', sku: '', reorder_level: '10', category_id: '', unit_type_id: '', brand_id: '' }); setShowNewProduct(true); }}
+                            className="gap-1.5 h-8 text-xs">
+                            <Plus className="h-3.5 w-3.5" /> New Product
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Barcode + Search + Add Product */}
-                <div className="flex gap-2 mb-4">
-                    <div className="relative flex-1">
+                {/* Barcode scanner row */}
+                <div className="px-5 py-3 bg-muted/30 border-b border-border/50">
+                    <div className="relative max-w-sm">
+                        <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input ref={inputRef} value={barcodeInput}
                             onChange={(e) => setBarcodeInput(e.target.value)}
                             onKeyDown={handleBarcode}
-                            placeholder="Scan barcode and press Enter..." />
+                            placeholder="Scan barcode and press Enter..."
+                            className="pl-9 h-9 bg-background text-sm" />
                     </div>
-
-                    {/* ✅ Search Products Button */}
-                    <Button variant="outline" onClick={() => setShowProductSearch(true)} className="gap-2 shrink-0">
-                        <Search className="h-4 w-4" /> Search Product
-                    </Button>
-
-                    {/* ✅ Add New Product Button */}
-                    <Button variant="outline"
-                        onClick={() => { setNewProductForm({ generic_name: '', barcode_value: '', sku: '', reorder_level: '10', category_id: '', unit_type_id: '', brand_id: '' }); setShowNewProduct(true); }}
-                        className="gap-2 shrink-0">
-                        <Plus className="h-4 w-4" /> New Product
-                    </Button>
                 </div>
 
-                {/* Items Table */}
-                <div className="border rounded-lg overflow-hidden mb-4">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="bg-muted/50 border-b text-xs">
-                                    <th className="text-left font-medium text-muted-foreground px-3 py-2">Product</th>
-                                    <th className="text-center font-medium text-muted-foreground px-3 py-2 w-20">Qty</th>
-                                    <th className="text-center font-medium text-muted-foreground px-3 py-2 w-28">Cost Price</th>
-                                    <th className="text-center font-medium text-muted-foreground px-3 py-2 w-28">Sell Price</th>
-                                    <th className="text-center font-medium text-muted-foreground px-3 py-2 w-32">Batch No.</th>
-                                    <th className="text-center font-medium text-muted-foreground px-3 py-2 w-36">Expiry Date</th>
-                                    <th className="text-right font-medium text-muted-foreground px-3 py-2 w-24">Total</th>
-                                    <th className="px-3 py-2 w-8"></th>
+                {/* Items table */}
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="bg-muted/40 text-xs border-b border-border">
+                                <th className="text-left font-medium text-muted-foreground px-4 py-3 w-8">#</th>
+                                <th className="text-left font-medium text-muted-foreground px-4 py-3">Product</th>
+                                <th className="text-center font-medium text-muted-foreground px-3 py-3 w-20">Qty</th>
+                                <th className="text-center font-medium text-muted-foreground px-3 py-3 w-36">Cost Price</th>
+                                <th className="text-center font-medium text-muted-foreground px-3 py-3 w-36">Sell Price</th>
+                                <th className="text-center font-medium text-muted-foreground px-3 py-3 w-32">Batch No.</th>
+                                <th className="text-center font-medium text-muted-foreground px-3 py-3 w-36">Expiry Date</th>
+                                <th className="text-right font-medium text-muted-foreground px-4 py-3 w-32">Total</th>
+                                <th className="px-3 py-3 w-8" />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.length === 0 ? (
+                                <tr>
+                                    <td colSpan={9} className="text-center py-16 text-muted-foreground">
+                                        <Package className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                                        <p className="text-sm font-medium">No products added yet</p>
+                                        <p className="text-xs mt-1 opacity-70">Scan a barcode, search, or register a new product</p>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {items.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={8} className="text-center py-10 text-sm text-muted-foreground">
-                                            <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                                            No items added — scan a barcode, search, or add a new product
-                                        </td>
-                                    </tr>
-                                ) : items.map((item) => (
-                                    <tr key={item.productId} className="border-b last:border-0 hover:bg-muted/20">
-                                        <td className="px-3 py-2 text-sm font-medium">{item.name}</td>
-                                        <td className="px-3 py-2">
-                                            <Input type="number" value={item.qty}
-                                                onChange={(e) => updateItem(item.productId, 'qty', Number(e.target.value))}
-                                                className={`w-16 h-8 text-center mx-auto ${spinnerOff}`} />
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <Input type="number" value={item.unitPrice || ''}
-                                                onChange={(e) => updateItem(item.productId, 'unitPrice', Number(e.target.value))}
-                                                className={`w-24 h-8 text-right mx-auto ${spinnerOff}`}
-                                                placeholder="0.00" />
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <Input type="number" value={item.sellingPrice || ''}
-                                                onChange={(e) => updateItem(item.productId, 'sellingPrice', Number(e.target.value))}
-                                                className={`w-24 h-8 text-right mx-auto ${spinnerOff}`}
-                                                placeholder="0.00" />
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <Input value={item.batchNumber}
-                                                onChange={(e) => updateItem(item.productId, 'batchNumber', e.target.value)}
-                                                className="w-28 h-8 mx-auto font-mono text-xs"
-                                                placeholder="BCH-..." />
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <ExpiryDatePicker
-                                                value={item.expiryDate}
-                                                onChange={(v) => updateItem(item.productId, 'expiryDate', v)} />
-                                        </td>
-                                        <td className="px-3 py-2 text-right text-sm font-medium">
-                                            Rs. {(item.qty * item.unitPrice).toLocaleString()}
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <button onClick={() => setItems((prev) => prev.filter((i) => i.productId !== item.productId))}
-                                                className="text-destructive hover:text-destructive/80">
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                            ) : items.map((item, idx) => (
+                                <tr key={item.productId} className="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors">
+                                    <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">{idx + 1}</td>
+                                    <td className="px-4 py-2.5 text-sm font-medium">{item.name}</td>
+                                    <td className="px-3 py-2.5">
+                                        <Input type="number" value={item.qty}
+                                            onChange={(e) => updateItem(item.productId, 'qty', Number(e.target.value))}
+                                            className={`w-16 h-8 text-center mx-auto ${spinnerOff}`} />
+                                    </td>
+                                    <td className="px-3 py-2.5">
+                                        <Input type="number" value={item.unitPrice || ''}
+                                            onChange={(e) => updateItem(item.productId, 'unitPrice', Number(e.target.value))}
+                                            className={`w-24 h-8 text-right mx-auto ${spinnerOff}`}
+                                            placeholder="0.00" />
+                                    </td>
+                                    <td className="px-3 py-2.5">
+                                        <Input type="number" value={item.sellingPrice || ''}
+                                            onChange={(e) => updateItem(item.productId, 'sellingPrice', Number(e.target.value))}
+                                            className={`w-24 h-8 text-right mx-auto ${spinnerOff}`}
+                                            placeholder="0.00" />
+                                    </td>
+                                    <td className="px-3 py-2.5">
+                                        <Input value={item.batchNumber}
+                                            onChange={(e) => updateItem(item.productId, 'batchNumber', e.target.value)}
+                                            className="w-28 h-8 mx-auto font-mono text-xs"
+                                            placeholder="BCH-..." />
+                                    </td>
+                                    <td className="px-3 py-2.5">
+                                        <ExpiryDatePicker
+                                            value={item.expiryDate}
+                                            onChange={(v) => updateItem(item.productId, 'expiryDate', v)} />
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-sm font-semibold tabular-nums">
+                                        Rs. {(item.qty * item.unitPrice).toLocaleString()}
+                                    </td>
+                                    <td className="px-3 py-2.5">
+                                        <button onClick={() => setItems((prev) => prev.filter((i) => i.productId !== item.productId))}
+                                            className="text-muted-foreground hover:text-destructive transition-colors">
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Financial Summary Panel */}
+                <div className="border-t border-border bg-muted/20 px-5 py-5">
+                    <div className="flex justify-end">
+                        <div className="w-full max-w-md">
+                            <div className="flex items-center justify-between py-2.5 border-b border-border/40">
+                                <span className="text-xs font-medium text-muted-foreground">Payment Method</span>
+                                <div className="w-44">
+                                    <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
+                                        <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue placeholder="Select method" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {paymentMethods.map((pm) => (
+                                                <SelectItem key={pm.id} value={String(pm.id)}>{pm.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between py-2.5 border-b border-border/40">
+                                <span className="text-xs text-muted-foreground">Sub Total</span>
+                                <span className="text-sm font-medium tabular-nums">Rs. {subTotal.toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2.5 border-b border-border/40">
+                                <span className="text-xs text-muted-foreground">Discount (Rs.)</span>
+                                <div className="w-32">
+                                    <Input type="number" value={discount}
+                                        onChange={(e) => setDiscount(e.target.value)}
+                                        className={`h-8 text-right text-xs ${spinnerOff}`}
+                                        placeholder="0" />
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between py-2.5 border-b border-border/40">
+                                <span className={`text-xs ${selectedSupplierIsVat ? 'text-muted-foreground' : 'text-muted-foreground/40'}`}>
+                                    {selectedSupplierIsVat && vatRate > 0 ? `VAT (${vatRate.toFixed(2)}%)` : 'VAT'}
+                                </span>
+                                <span className={`text-sm tabular-nums ${selectedSupplierIsVat ? 'font-medium' : 'text-muted-foreground/40'}`}>
+                                    Rs. {vatAmount.toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between py-3 border-b border-border">
+                                <span className="text-sm font-semibold">Grand Total</span>
+                                <span className="text-base font-bold tabular-nums">Rs. {grandTotal.toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2.5 border-b border-border/40">
+                                <span className="text-xs text-muted-foreground">Paid Amount (Rs.)</span>
+                                <div className="w-32">
+                                    <Input type="number" value={paidAmount}
+                                        onChange={(e) => setPaidAmount(e.target.value)}
+                                        className={`h-8 text-right text-xs ${spinnerOff}`}
+                                        placeholder="0" />
+                                </div>
+                            </div>
+                            <div className={`flex items-center justify-between py-3 rounded-lg px-3 mt-2 ${
+                                balance > 0
+                                    ? 'bg-destructive/10 border border-destructive/20'
+                                    : 'bg-green-500/10 border border-green-500/20'
+                            }`}>
+                                <span className={`text-xs font-semibold ${balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                    {balance > 0 ? 'Balance Due' : 'Balance'}
+                                </span>
+                                <span className={`text-base font-bold tabular-nums ${balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                    Rs. {Math.abs(balance).toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Payment Method */}
-                <div className="flex gap-2 pt-4 border-t">
-                    {(['cash', 'card', 'cheque'] as const).map((m) => (
-                        <button key={m} onClick={() => setPaymentMethod(m)}
-                            className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors
-                                ${paymentMethod === m
-                                    ? 'bg-primary text-primary-foreground border-primary'
-                                    : 'border-border hover:bg-muted'}`}>
-                            {m === 'cash' ? '💵 Cash' : m === 'card' ? '💳 Card' : '🏦 Cheque'}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Payment Fields */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-                    <FloatingInput label="Sub Total (Rs.)"
-                        value={`Rs. ${subTotal.toLocaleString()}`}
-                        readOnly className="h-[52px] bg-muted/30 cursor-default" />
-                    <FloatingInput label="Discount (Rs.)" type="number"
-                        value={discount}
-                        onChange={(e) => setDiscount(e.target.value)}
-                        className={`h-[52px] ${spinnerOff}`} />
-                    {vatRate > 0 && (
-                        <FloatingInput
-                            label={`VAT (${vatRate.toFixed(2)}%)`}
-                            value={`Rs. ${vatAmount.toLocaleString()}`}
-                            readOnly className="h-[52px] bg-muted/30 cursor-default" />
-                    )}
-                    <FloatingInput label={vatRate > 0 ? 'Grand Total (Rs.)' : 'Total (Rs.)'}
-                        value={`Rs. ${grandTotal.toLocaleString()}`}
-                        readOnly className="h-[52px] bg-muted/30 cursor-default font-semibold" />
-                    <FloatingInput label="Paid Amount (Rs.)" type="number"
-                        value={paidAmount}
-                        onChange={(e) => setPaidAmount(e.target.value)}
-                        className={`h-[52px] ${spinnerOff}`} />
-                    <FloatingInput label="Balance (Rs.)"
-                        value={`Rs. ${Math.abs(balance).toLocaleString()}`}
-                        readOnly
-                        className={`h-[52px] cursor-default font-semibold
-                            ${balance > 0
-                                ? 'text-destructive bg-destructive/5 border-destructive/30'
-                                : 'text-green-600 bg-green-50 dark:bg-green-900/20'}`} />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 mt-4">
-                    <Button onClick={() => handleSave(false)} disabled={saving}
-                        className="flex-1 gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-                        <Save className="h-4 w-4" />
-                        {saving ? 'Saving...' : 'Save GRN'}
-                    </Button>
-                    <Button onClick={() => handleSave(true)} disabled={saving}
-                        className="flex-1 gap-2">
-                        <Printer className="h-4 w-4" /> Save & Print GRN
-                    </Button>
-                </div>
+            {/* ── Action Buttons ── */}
+            <div className="flex justify-end gap-3 pb-6">
+                <Button onClick={() => handleSave(false)} disabled={saving}
+                    size="lg" variant="outline"
+                    className="gap-2 border-primary/30 text-primary hover:bg-primary/5 px-8">
+                    <Save className="h-4 w-4" />
+                    {saving ? 'Saving...' : 'Save GRN'}
+                </Button>
+                <Button onClick={() => handleSave(true)} disabled={saving} size="lg" className="gap-2 px-8">
+                    <Printer className="h-4 w-4" /> Save & Print GRN
+                </Button>
             </div>
 
             {/* ✅ Product Search Dialog */}
@@ -1286,6 +1394,78 @@ function GRNPage() {
                 </DialogContent>
             </Dialog>
 
+            {/* ✅ Add Supplier from GRN */}
+            <Dialog open={showAddSupplierGrn} onOpenChange={setShowAddSupplierGrn}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Add Supplier</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Name</label>
+                            <Input autoFocus value={supplierFormGrn.name || ''}
+                                onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, name: e.target.value })} />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Mobile</label>
+                            <Input value={supplierFormGrn.contact_no || ''}
+                                onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, contact_no: e.target.value })} />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
+                            <Input value={supplierFormGrn.email || ''}
+                                onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, email: e.target.value })} />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Address</label>
+                            <Input value={supplierFormGrn.address || ''}
+                                onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, address: e.target.value })} />
+                        </div>
+                        {/* VAT Registered */}
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={!!supplierFormGrn.is_vat}
+                                onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, is_vat: e.target.checked ? 1 : 0 })} />
+                            <span className="text-sm">VAT Registered Supplier</span>
+                        </label>
+
+                        {!!supplierFormGrn.is_vat && (
+                            <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border border-border">
+                                <p className="col-span-2 text-xs font-semibold text-muted-foreground">VAT Supplier Details</p>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Company Name</label>
+                                    <Input value={supplierFormGrn.vat_company_name || ''}
+                                        onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, vat_company_name: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Nick Name</label>
+                                    <Input value={supplierFormGrn.vat_nick_name || ''}
+                                        onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, vat_nick_name: e.target.value })} />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Company Address</label>
+                                    <Input value={supplierFormGrn.vat_company_address || ''}
+                                        onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, vat_company_address: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Contact Number</label>
+                                    <Input value={supplierFormGrn.vat_company_contact || ''}
+                                        onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, vat_company_contact: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">VAT Number</label>
+                                    <Input value={supplierFormGrn.vat_number || ''}
+                                        onChange={(e) => setSupplierFormGrn({ ...supplierFormGrn, vat_number: e.target.value })} />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setShowAddSupplierGrn(false); setSupplierFormGrn({}); }}>Cancel</Button>
+                        <Button onClick={handleAddSupplierGrn}>Add Supplier</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* ✅ Register New Product Dialog */}
             <Dialog open={showNewProduct} onOpenChange={setShowNewProduct}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1296,40 +1476,46 @@ function GRNPage() {
                     </DialogHeader>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
 
+                        {/* Generic Name - full width */}
                         <div className="sm:col-span-2">
-                            <FloatingInput label="Generic Name"
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Generic Name</label>
+                            <Input autoFocus
                                 value={newProductForm.generic_name}
-                                onChange={(e) => setNewProductForm({ ...newProductForm, generic_name: e.target.value })}
-                                autoFocus />
+                                onChange={(e) => setNewProductForm({ ...newProductForm, generic_name: e.target.value })} />
                         </div>
 
-                        <div className="flex gap-2 items-end">
-                            <div className="flex-1">
-                                <FloatingInput label="Barcode"
+                        {/* Barcode */}
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Barcode</label>
+                            <div className="flex gap-2">
+                                <Input className="flex-1"
                                     value={newProductForm.barcode_value}
                                     onChange={(e) => setNewProductForm({ ...newProductForm, barcode_value: e.target.value })} />
+                                <Button variant="outline" size="icon"
+                                    onClick={() => setNewProductForm({ ...newProductForm, barcode_value: String(Math.floor(Math.random() * 9000000000) + 1000000000) })}>
+                                    <Barcode className="h-4 w-4" />
+                                </Button>
                             </div>
-                            <Button variant="outline" size="icon" className="shrink-0"
-                                onClick={() => setNewProductForm({ ...newProductForm, barcode_value: String(Math.floor(Math.random() * 9000000000) + 1000000000) })}>
-                                <Barcode className="h-4 w-4" />
-                            </Button>
                         </div>
 
+                        {/* SKU */}
                         <div>
-                            <FloatingInput label="SKU (auto if empty)"
-                                value={newProductForm.sku}
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">SKU (auto if empty)</label>
+                            <Input value={newProductForm.sku}
                                 onChange={(e) => setNewProductForm({ ...newProductForm, sku: e.target.value })} />
                         </div>
 
+                        {/* Reorder Level */}
                         <div>
-                            <FloatingInput label="Reorder Level" type="number"
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Reorder Level</label>
+                            <Input type="number" className={spinnerOff}
                                 value={newProductForm.reorder_level}
                                 onChange={(e) => setNewProductForm({ ...newProductForm, reorder_level: e.target.value })} />
                         </div>
 
                         {/* Brand */}
                         <div>
-                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Brand</p>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Brand</label>
                             <div className="flex gap-2">
                                 <div className="flex-1">
                                     <Combobox options={brands.map((b) => ({ value: String(b.id), label: b.name }))}
@@ -1345,7 +1531,7 @@ function GRNPage() {
 
                         {/* Category */}
                         <div>
-                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Category</p>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
                             <div className="flex gap-2">
                                 <div className="flex-1">
                                     <Combobox options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
@@ -1361,7 +1547,7 @@ function GRNPage() {
 
                         {/* Unit Type */}
                         <div>
-                            <p className="text-xs font-medium text-muted-foreground mb-1.5">Unit Type</p>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Unit Type</label>
                             <div className="flex gap-2">
                                 <div className="flex-1">
                                     <Combobox options={unitTypes.map((u) => ({ value: String(u.id), label: u.name }))}

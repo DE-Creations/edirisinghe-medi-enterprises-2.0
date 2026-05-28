@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Receivable;
 
 class Invoice extends Model
 {
@@ -22,6 +23,7 @@ class Invoice extends Model
         'paid_amount',
         'payment_method',
         'status',
+        'is_vat_invoice_issued',
     ];
 
     public function items(): HasMany {
@@ -34,5 +36,13 @@ class Invoice extends Model
 
     public function user(): BelongsTo {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function receivables(): HasMany {
+        return $this->hasMany(Receivable::class, 'invoice_id');
+    }
+
+    public function paymentMethod(): BelongsTo {
+        return $this->belongsTo(PaymentMethod::class, 'payment_method');
     }
 }

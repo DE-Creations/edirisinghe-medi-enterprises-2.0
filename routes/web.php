@@ -21,6 +21,10 @@ use App\Http\Controllers\StockController;
 use App\Http\Controllers\PayableController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpensesCategoryController;
+use App\Http\Controllers\PaymentMethodController;
+use App\Http\Controllers\VatInvoiceController;
+use App\Http\Controllers\VatInvoiceApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -52,10 +56,13 @@ Route::middleware('auth')->group(function () {
     // ── Invoice ────────────────────────────────────────────────────────────
     Route::get('/invoice', fn() => Inertia::render('InvoicePage'));
     Route::get('/invoice-history', fn() => Inertia::render('InvoiceHistoryPage'));
+    Route::get('/invoice/print/{id}', [InvoiceController::class, 'printView']);
     Route::prefix('/invoice')->group(function () {
         Route::get('/next-number',    [InvoiceController::class, 'nextNumber']);
         Route::get('/form-data',      [InvoiceController::class, 'formData']);
+        Route::get('/search-stock',   [InvoiceController::class, 'searchStock']);
         Route::get('/all',            [InvoiceController::class, 'all']);
+        Route::get('/show/{id}',      [InvoiceController::class, 'show']);
         Route::post('/store',         [InvoiceController::class, 'store']);
         Route::delete('/delete/{id}', [InvoiceController::class, 'delete']);
     });
@@ -63,10 +70,12 @@ Route::middleware('auth')->group(function () {
     // ── GRN ────────────────────────────────────────────────────────────────
     Route::get('/grn', fn() => Inertia::render('GRNPage'));
     Route::get('/grn-history', fn() => Inertia::render('GRNHistoryPage'));
+    Route::get('/grn/print/{id}', [GrnController::class, 'printView']);
     Route::prefix('/grn')->group(function () {
         Route::get('/next-number',    [GrnController::class, 'nextNumber']);
         Route::get('/form-data',      [GrnController::class, 'formData']);
         Route::get('/all',            [GrnController::class, 'all']);
+        Route::get('/show/{id}',      [GrnController::class, 'show']);
         Route::post('/store',         [GrnController::class, 'store']);
         Route::delete('/delete/{id}', [GrnController::class, 'delete']);
     });
@@ -150,6 +159,17 @@ Route::middleware('auth')->group(function () {
         Route::delete('/delete/{id}', [UnitTypeController::class, 'delete']);
     });
 
+    // ── Expense Categories ─────────────────────────────────────────────────
+    Route::prefix('/expenses-category')->group(function () {
+        Route::get('/all',            [ExpensesCategoryController::class, 'all']);
+        Route::post('/store',         [ExpensesCategoryController::class, 'store']);
+        Route::post('/update/{id}',   [ExpensesCategoryController::class, 'update']);
+        Route::delete('/delete/{id}', [ExpensesCategoryController::class, 'delete']);
+    });
+
+    // ── Payment Methods ────────────────────────────────────────────────────
+    Route::get('/payment-methods/all', [PaymentMethodController::class, 'all']);
+
     // ── Company Profile ────────────────────────────────────────────────────
     Route::prefix('/company-profile')->group(function () {
         Route::get('/',        [CompanyProfileController::class, 'show']);
@@ -190,8 +210,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/payment',        [ReceivableController::class, 'recordPayment']);
     });
 
+    // ── VAT Invoices ──────────────────────────────────────────────────────
+    Route::get('/vat-invoices',           fn() => Inertia::render('VATInvoicesPage'));
+    Route::get('/vat-invoice/customers',  [VatInvoiceApiController::class, 'getCustomers']);
+    Route::post('/vat-invoice/search',    [VatInvoiceApiController::class, 'getInvoices']);
+    Route::get('/vat-invoice/data/{id}',  [VatInvoiceApiController::class, 'getInvoiceData']);
+    Route::get('/vat-invoice/history',    [VatInvoiceApiController::class, 'history']);
+    Route::post('/vat-invoice/generate',  [VatInvoiceController::class, 'generatePdf']);
+    Route::post('/vat-invoice/reprint',   [VatInvoiceController::class, 'viewHistoryPdf']);
+
     // ── Other Pages ────────────────────────────────────────────────────────
-    Route::get('/vat-invoices', fn() => Inertia::render('VATInvoicesPage'));
     Route::get('/reports',      fn() => Inertia::render('ReportsPage'));
 
     // ── Fallback ───────────────────────────────────────────────────────────

@@ -381,7 +381,7 @@ function InvoiceHistoryPage() {
                                                 className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
                                                 <Eye className="h-3.5 w-3.5" />
                                             </button>
-                                            <button onClick={() => window.print()}
+                                            <button onClick={() => window.open('/invoice/print/' + inv.id, '_blank')}
                                                 className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
                                                 <Printer className="h-3.5 w-3.5" />
                                             </button>

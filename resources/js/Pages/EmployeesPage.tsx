@@ -146,10 +146,10 @@ function EmployeesPage() {
         <div className="space-y-4 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="w-full sm:w-72">
-                    <SearchBar value={search} onChange={setSearch} placeholder="Search employees..." />
+                    <SearchBar value={search} onChange={setSearch} placeholder="Search users..." />
                 </div>
                 <Button onClick={openAdd} className="gap-2">
-                    <Plus className="h-4 w-4" /> Add Employee
+                    <Plus className="h-4 w-4" /> Add User
                 </Button>
             </div>
 
@@ -219,12 +219,12 @@ function EmployeesPage() {
             <Dialog open={showAdd || !!editEmp} onOpenChange={(open) => !open && closeForm()}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{editEmp ? 'Update Employee' : 'Add Employee'}</DialogTitle>
+                        <DialogTitle>{editEmp ? 'Update User' : 'Add User'}</DialogTitle>
                     </DialogHeader>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
 
-                        {/* Employee Number - read only */}
-                        <FloatingInput label="Employee Number"
+                        {/* User Number - read only */}
+                        <FloatingInput label="User Number"
                             value={editEmp ? getEmpNumber(editEmp.id) : nextEmpNo}
                             readOnly className="bg-muted/30 cursor-not-allowed"
                             onChange={() => { }} />
@@ -297,7 +297,7 @@ function EmployeesPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={closeForm}>Cancel</Button>
-                        <Button onClick={handleSave}>{editEmp ? 'Update' : 'Add'} Employee</Button>
+                        <Button onClick={handleSave}>{editEmp ? 'Update' : 'Add'} User</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -305,7 +305,7 @@ function EmployeesPage() {
             {/* View Profile Dialog */}
             <Dialog open={!!viewEmp} onOpenChange={(open) => !open && setViewEmp(null)}>
                 <DialogContent className="max-w-md">
-                    <DialogHeader><DialogTitle>Employee Profile</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>User Profile</DialogTitle></DialogHeader>
                     {viewEmp && (
                         <div className="space-y-4">
                             <div className="flex items-center gap-4">
@@ -650,7 +650,7 @@ function EmployeesPage() {
 export default function WrappedEmployeesPage() {
     return (
         <>
-            <Head title="Employees" />
+            <Head title="Users" />
             <EmployeesPage />
         </>
     );

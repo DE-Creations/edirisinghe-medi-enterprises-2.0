@@ -115,7 +115,7 @@
 // }
 
 import React, { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { Pill, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -132,19 +132,7 @@ export default function LoginPage() {
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-
-        // Submit via Inertia but force a full page navigation on success.
-        // This ensures the root app and layout re-initialize (avoids layout
-        // quirks that sometimes appear when Inertia replaces the page
-        // without a full reload).
-        post('/login', {
-            onSuccess: () => {
-                const redirectTo = sessionStorage.getItem('redirect_after_login') || '/invoice';
-                sessionStorage.removeItem('redirect_after_login');
-                // Use location.replace to avoid keeping the login page in history.
-                window.location.replace(redirectTo);
-            },
-        });
+        post('/login');
     };
 
     return (
@@ -157,7 +145,7 @@ export default function LoginPage() {
                             <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center mb-4">
                                 <Pill className="h-7 w-7 text-primary-foreground" />
                             </div>
-                            <h1 className="text-xl font-bold">PharmaPOS</h1>
+                            <h1 className="text-xl font-bold">{(usePage().props as any).appName}</h1>
                             <p className="text-sm text-muted-foreground mt-1">
                                 Sign in to your account
                             </p>

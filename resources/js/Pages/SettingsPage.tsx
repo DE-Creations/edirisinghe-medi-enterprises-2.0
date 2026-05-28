@@ -821,12 +821,14 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { Sun, Moon, Shield, Building, Receipt, Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { toast } from '@/components/ui/sonner';
 import axios from 'axios';
 
 interface Category  { id: number; name: string; description?: string; }
-interface Brand     { id: number; name: string; }
-interface UnitType  { id: number; name: string; }
+interface Brand          { id: number; name: string; }
+interface UnitType       { id: number; name: string; }
+interface ExpensesCategory { id: number; name: string; }
 interface Company   { id: number; name: string; mobile: string; address: string; }
 
 // ── Reusable Simple List (Brand, UnitType) ──
@@ -842,10 +844,17 @@ function SimpleListSection({ title, items, onAdd, onEdit, onDelete }: {
     const [name,     setName]     = useState('');
     const [search,   setSearch]   = useState('');
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [page,     setPage]     = useState(1);
+    const PAGE_SIZE = 10;
 
     const filtered = items.filter((i) =>
         i.name.toLowerCase().includes(search.toLowerCase())
     );
+
+    useEffect(() => setPage(1), [search]);
+
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const handleSave = () => {
         if (!name.trim()) return;
@@ -872,14 +881,14 @@ function SimpleListSection({ title, items, onAdd, onEdit, onDelete }: {
                     className="pl-8 h-8 text-xs" />
             </div>
 
-            {/* Scrollable List */}
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {filtered.length === 0 && (
+            {/* List */}
+            <div className="space-y-1.5">
+                {paged.length === 0 && (
                     <p className="text-xs text-muted-foreground py-2">
                         {search ? 'No results found.' : `No ${title.toLowerCase()} added yet.`}
                     </p>
                 )}
-                {filtered.map((item) => (
+                {paged.map((item) => (
                     <div key={item.id}
                         className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50">
                         <span className="text-sm">{item.name}</span>
@@ -896,6 +905,31 @@ function SimpleListSection({ title, items, onAdd, onEdit, onDelete }: {
                     </div>
                 ))}
             </div>
+
+            {totalPages > 1 && (
+                <div className="mt-3 flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                        {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    </span>
+                    <Pagination className="w-auto mx-0">
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious href="#"
+                                    onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)); }}
+                                    className={page === 1 ? 'pointer-events-none opacity-40' : 'cursor-pointer'} />
+                            </PaginationItem>
+                            <PaginationItem>
+                                <span className="text-xs px-2">{page} / {totalPages}</span>
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationNext href="#"
+                                    onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)); }}
+                                    className={page === totalPages ? 'pointer-events-none opacity-40' : 'cursor-pointer'} />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            )}
 
             <Dialog open={showAdd || !!editItem} onOpenChange={(open) => {
                 if (!open) { setShowAdd(false); setEditItem(null); setName(''); }
@@ -934,11 +968,18 @@ function CategorySection({ categories, onAdd, onEdit, onDelete }: {
     const [form,     setForm]     = useState<Partial<Category>>({});
     const [search,   setSearch]   = useState('');
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [page,     setPage]     = useState(1);
+    const PAGE_SIZE = 10;
 
     const filtered = categories.filter((c) =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         (c.description || '').toLowerCase().includes(search.toLowerCase())
     );
+
+    useEffect(() => setPage(1), [search]);
+
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const handleSave = () => {
         if (!form.name?.trim()) return;
@@ -965,14 +1006,14 @@ function CategorySection({ categories, onAdd, onEdit, onDelete }: {
                     className="pl-8 h-8 text-xs" />
             </div>
 
-            {/* Scrollable List */}
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {filtered.length === 0 && (
+            {/* List */}
+            <div className="space-y-1.5">
+                {paged.length === 0 && (
                     <p className="text-xs text-muted-foreground py-2">
                         {search ? 'No results found.' : 'No categories added yet.'}
                     </p>
                 )}
-                {filtered.map((cat) => (
+                {paged.map((cat) => (
                     <div key={cat.id}
                         className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50">
                         <div>
@@ -994,6 +1035,31 @@ function CategorySection({ categories, onAdd, onEdit, onDelete }: {
                     </div>
                 ))}
             </div>
+
+            {totalPages > 1 && (
+                <div className="mt-3 flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                        {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    </span>
+                    <Pagination className="w-auto mx-0">
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious href="#"
+                                    onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)); }}
+                                    className={page === 1 ? 'pointer-events-none opacity-40' : 'cursor-pointer'} />
+                            </PaginationItem>
+                            <PaginationItem>
+                                <span className="text-xs px-2">{page} / {totalPages}</span>
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationNext href="#"
+                                    onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)); }}
+                                    className={page === totalPages ? 'pointer-events-none opacity-40' : 'cursor-pointer'} />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            )}
 
             <Dialog open={showAdd || !!editItem} onOpenChange={(open) => {
                 if (!open) { setShowAdd(false); setEditItem(null); setForm({}); }
@@ -1039,11 +1105,18 @@ function CompaniesSection({ companies, onAdd, onEdit, onDelete }: {
     const [form,     setForm]     = useState<Partial<Company>>({});
     const [search,   setSearch]   = useState('');
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [page,     setPage]     = useState(1);
+    const PAGE_SIZE = 10;
 
     const filtered = companies.filter((c) =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.address.toLowerCase().includes(search.toLowerCase())
     );
+
+    useEffect(() => setPage(1), [search]);
+
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const handleSave = () => {
         if (!form.name?.trim()) return;
@@ -1070,14 +1143,14 @@ function CompaniesSection({ companies, onAdd, onEdit, onDelete }: {
                     className="pl-8 h-8 text-xs" />
             </div>
 
-            {/* Scrollable List */}
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {filtered.length === 0 && (
+            {/* List */}
+            <div className="space-y-1.5">
+                {paged.length === 0 && (
                     <p className="text-xs text-muted-foreground py-2">
                         {search ? 'No results found.' : 'No companies added yet.'}
                     </p>
                 )}
-                {filtered.map((c) => (
+                {paged.map((c) => (
                     <div key={c.id}
                         className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50">
                         <div>
@@ -1097,6 +1170,31 @@ function CompaniesSection({ companies, onAdd, onEdit, onDelete }: {
                     </div>
                 ))}
             </div>
+
+            {totalPages > 1 && (
+                <div className="mt-3 flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                        {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    </span>
+                    <Pagination className="w-auto mx-0">
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious href="#"
+                                    onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)); }}
+                                    className={page === 1 ? 'pointer-events-none opacity-40' : 'cursor-pointer'} />
+                            </PaginationItem>
+                            <PaginationItem>
+                                <span className="text-xs px-2">{page} / {totalPages}</span>
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationNext href="#"
+                                    onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)); }}
+                                    className={page === totalPages ? 'pointer-events-none opacity-40' : 'cursor-pointer'} />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            )}
 
             <Dialog open={showAdd || !!editItem} onOpenChange={(open) => {
                 if (!open) { setShowAdd(false); setEditItem(null); setForm({}); }
@@ -1151,10 +1249,10 @@ function SettingsPage() {
     const [companyVatNo,     setCompanyVatNo]     = useState('');
     const [placeOfSupply,    setPlaceOfSupply]    = useState('');
 
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [brands,     setBrands]     = useState<Brand[]>([]);
-    const [unitTypes,  setUnitTypes]  = useState<UnitType[]>([]);
-    const [companies,  setCompanies]  = useState<Company[]>([]);
+    const [categories,        setCategories]        = useState<Category[]>([]);
+    const [brands,             setBrands]             = useState<Brand[]>([]);
+    const [unitTypes,          setUnitTypes]          = useState<UnitType[]>([]);
+    const [expensesCategories, setExpensesCategories] = useState<ExpensesCategory[]>([]);
 
     useEffect(() => {
         fetchSettings();
@@ -1184,16 +1282,16 @@ function SettingsPage() {
 
     const fetchCrudData = async () => {
         try {
-            const [catRes, brandRes, unitRes, compRes] = await Promise.all([
+            const [catRes, brandRes, unitRes, expCatRes] = await Promise.all([
                 axios.get('/categories/all'),
                 axios.get('/brands/all'),
                 axios.get('/unit-types/all'),
-                axios.get('/companies/all'),
+                axios.get('/expenses-category/all'),
             ]);
             setCategories(catRes.data);
             setBrands(brandRes.data);
             setUnitTypes(unitRes.data);
-            setCompanies(compRes.data);
+            setExpensesCategories(expCatRes.data);
         } catch (e) { console.log(e); }
     };
 
@@ -1246,10 +1344,9 @@ function SettingsPage() {
     const editUnitType   = async (id: number, name: string) => { try { const res = await axios.post(`/unit-types/update/${id}`, { name }); setUnitTypes((p) => p.map((u) => u.id === id ? res.data : u)); } catch (e) { console.log(e); } };
     const deleteUnitType = async (id: number) => { try { await axios.delete(`/unit-types/delete/${id}`); setUnitTypes((p) => p.filter((u) => u.id !== id)); } catch (e) { console.log(e); } };
 
-    // Companies
-    const addCompany    = async (data: Partial<Company>) => { try { const res = await axios.post('/companies/store', data); setCompanies((p) => [...p, res.data]); } catch (e) { console.log(e); } };
-    const editCompany   = async (id: number, data: Partial<Company>) => { try { const res = await axios.post(`/companies/update/${id}`, data); setCompanies((p) => p.map((c) => c.id === id ? res.data : c)); } catch (e) { console.log(e); } };
-    const deleteCompany = async (id: number) => { try { await axios.delete(`/companies/delete/${id}`); setCompanies((p) => p.filter((c) => c.id !== id)); } catch (e) { console.log(e); } };
+    const addExpensesCategory    = async (name: string) => { try { const res = await axios.post('/expenses-category/store', { name }); setExpensesCategories((p) => [...p, res.data]); } catch (e) { console.log(e); } };
+    const editExpensesCategory   = async (id: number, name: string) => { try { const res = await axios.post(`/expenses-category/update/${id}`, { name }); setExpensesCategories((p) => p.map((u) => u.id === id ? res.data : u)); } catch (e) { console.log(e); } };
+    const deleteExpensesCategory = async (id: number) => { try { await axios.delete(`/expenses-category/delete/${id}`); setExpensesCategories((p) => p.filter((u) => u.id !== id)); } catch (e) { console.log(e); } };
 
     const roles = [
         { role: 'Owner',   permissions: ['Full Access', 'Manage Employees', 'View Reports', 'Settings', 'Billing', 'Products', 'Stock', 'GRN'] },
@@ -1331,11 +1428,22 @@ function SettingsPage() {
                 <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
                     <Receipt className="h-4 w-4" /> VAT Settings
                 </h3>
-                {currentVatInfo && (
-                    <div className="mb-4 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
-                        <span className="text-xs text-muted-foreground">Active VAT:</span>
-                        <span className="text-sm font-semibold text-primary">{currentVatInfo.vat_percentage}%</span>
-                        <span className="text-xs text-muted-foreground">since {currentVatInfo.from_date}</span>
+                {currentVatInfo ? (
+                    <div className="mb-4 rounded-lg border border-border bg-muted/40 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                            Current VAT Rate (Today)
+                        </p>
+                        <div className="flex items-baseline gap-3">
+                            <span className="text-2xl font-bold text-primary">{currentVatInfo.vat_percentage}%</span>
+                            <span className="text-xs text-muted-foreground">effective from {currentVatInfo.from_date}</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="mb-4 rounded-lg border border-border bg-muted/40 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                            Current VAT Rate (Today)
+                        </p>
+                        <p className="text-sm text-muted-foreground">No VAT configured yet.</p>
                     </div>
                 )}
                 <p className="text-xs text-muted-foreground mb-3">
@@ -1355,9 +1463,9 @@ function SettingsPage() {
             </div>
 
             <CategorySection  categories={categories} onAdd={addCategory}  onEdit={editCategory}  onDelete={deleteCategory} />
-            <SimpleListSection title="Brands"     items={brands}     onAdd={addBrand}     onEdit={editBrand}     onDelete={deleteBrand} />
-            <SimpleListSection title="Unit Types" items={unitTypes}   onAdd={addUnitType}  onEdit={editUnitType}  onDelete={deleteUnitType} />
-            <CompaniesSection  companies={companies}  onAdd={addCompany}  onEdit={editCompany}  onDelete={deleteCompany} />
+            <SimpleListSection title="Brands"              items={brands}             onAdd={addBrand}             onEdit={editBrand}             onDelete={deleteBrand} />
+            <SimpleListSection title="Unit Types"           items={unitTypes}          onAdd={addUnitType}          onEdit={editUnitType}          onDelete={deleteUnitType} />
+            <SimpleListSection title="Expense Categories"   items={expensesCategories} onAdd={addExpensesCategory}  onEdit={editExpensesCategory}  onDelete={deleteExpensesCategory} />
 
         </div>
     );

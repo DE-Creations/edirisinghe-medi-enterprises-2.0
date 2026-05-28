@@ -11,13 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('companies', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('mobile');
-            $table->string('address');
-            $table->softDeletes();
-            $table->timestamps();
+        Schema::table('customers', function (Blueprint $table) {
+            $table->string('vat_nick_name')->nullable()->after('is_vat');
         });
     }
 
@@ -26,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('companies');
+        Schema::table('customers', function (Blueprint $table) {
+            $table->dropColumn('vat_nick_name');
+        });
     }
 };

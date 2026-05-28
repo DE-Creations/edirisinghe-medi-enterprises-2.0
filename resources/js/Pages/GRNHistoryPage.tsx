@@ -249,6 +249,13 @@ interface GrnItem {
     expiry_date:   string | null;
 }
 
+interface GrnPayable {
+    id:       number;
+    amount:   number;
+    dateTime: string;
+    note:     string;
+}
+
 interface Grn {
     id:                  number;
     grn_number:          string;
@@ -270,6 +277,7 @@ function GRNHistoryPage() {
     const [search,     setSearch]     = useState('');
     const [dateFilter, setDateFilter] = useState('');
     const [viewGrn,    setViewGrn]    = useState<Grn | null>(null);
+    const [grnPayables, setGrnPayables] = useState<GrnPayable[]>([]);
     const [deleteId,   setDeleteId]   = useState<number | null>(null);
     const [page,       setPage]       = useState(1);
     const [lastPage,   setLastPage]   = useState(1);
@@ -302,6 +310,15 @@ function GRNHistoryPage() {
         }, 350);
         return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     }, [search, dateFilter]);
+
+    const openView = async (g: Grn) => {
+        setViewGrn(g);
+        setGrnPayables([]);
+        try {
+            const res = await axios.get(`/grn/show/${g.id}`);
+            setGrnPayables(res.data.grn?.payables ?? []);
+        } catch (e) { console.log(e); }
+    };
 
     const handleDelete = async () => {
         try {
@@ -351,7 +368,7 @@ function GRNHistoryPage() {
                             {filtered.map((g) => (
                                 <tr key={g.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                                     <td className="px-4 py-3 text-sm font-medium text-primary font-mono">{g.grn_number}</td>
-                                    <td className="px-4 py-3 text-sm">{g.received_date?.split('T')[0]}</td>
+                                    <td className="px-4 py-3 text-sm">{g.received_date?.substring(0, 10)}</td>
                                     <td className="px-4 py-3 text-sm">{g.supplier?.name}</td>
                                     <td className="px-4 py-3 text-sm text-muted-foreground">{g.user?.name}</td>
                                     <td className="px-4 py-3 text-sm font-semibold text-right">
@@ -364,11 +381,11 @@ function GRNHistoryPage() {
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => setViewGrn(g)}
+                                            <button onClick={() => openView(g)}
                                                 className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
                                                 <Eye className="h-3.5 w-3.5" />
                                             </button>
-                                            <button onClick={() => window.print()}
+                                            <button onClick={() => window.open('/grn/print/' + g.id, '_blank')}
                                                 className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
                                                 <Printer className="h-3.5 w-3.5" />
                                             </button>
@@ -423,7 +440,7 @@ function GRNHistoryPage() {
                             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Date</span>
-                                    <span className="font-medium">{viewGrn.received_date?.split('T')[0]}</span>
+                                    <span className="font-medium">{viewGrn.received_date?.substring(0, 10)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Supplier</span>
@@ -460,10 +477,9 @@ function GRNHistoryPage() {
                                     <thead>
                                         <tr className="border-b border-border">
                                             <th className="text-left py-2 text-xs text-muted-foreground">#</th>
-                                            <th className="text-left py-2 text-xs text-muted-foreground">Product</th>
+                                            <th className="text-left py-2 text-xs text-muted-foreground">Item</th>
                                             <th className="text-right py-2 text-xs text-muted-foreground">Qty</th>
                                             <th className="text-right py-2 text-xs text-muted-foreground">Cost</th>
-                                            <th className="text-right py-2 text-xs text-muted-foreground">Sell</th>
                                             <th className="text-right py-2 text-xs text-muted-foreground">Total</th>
                                         </tr>
                                     </thead>
@@ -471,22 +487,9 @@ function GRNHistoryPage() {
                                         {viewGrn.items.map((item, i) => (
                                             <tr key={i} className="border-b border-border last:border-0">
                                                 <td className="py-2 text-muted-foreground">{i + 1}</td>
-                                                <td className="py-2 font-medium">
-                                                    {item.product?.generic_name}
-                                                    {item.batch_number && (
-                                                        <span className="text-xs text-muted-foreground ml-1">
-                                                            [{item.batch_number}]
-                                                        </span>
-                                                    )}
-                                                    {item.expiry_date && (
-                                                        <span className="text-xs text-muted-foreground ml-1">
-                                                            exp: {item.expiry_date}
-                                                        </span>
-                                                    )}
-                                                </td>
+                                                <td className="py-2 font-medium">{item.product?.generic_name}</td>
                                                 <td className="py-2 text-right">{item.quantity}</td>
                                                 <td className="py-2 text-right">Rs. {Number(item.unit_price).toLocaleString()}</td>
-                                                <td className="py-2 text-right">Rs. {Number(item.selling_price).toLocaleString()}</td>
                                                 <td className="py-2 text-right font-medium">
                                                     Rs. {(item.quantity * item.unit_price).toLocaleString()}
                                                 </td>
@@ -514,15 +517,19 @@ function GRNHistoryPage() {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Paid</span>
-                                    <span className="text-green-600">Rs. {Number(viewGrn.paid_amount).toLocaleString()}</span>
+                                    <span className="text-green-600">Rs. {(grnPayables.length > 0 ? grnPayables.reduce((s, p) => s + Number(p.amount), 0) : Number(viewGrn.paid_amount)).toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Balance</span>
-                                    <span className={Number(viewGrn.total_amount) - Number(viewGrn.paid_amount) > 0
-                                        ? 'text-destructive font-medium'
-                                        : 'text-green-600 font-medium'}>
-                                        Rs. {Math.abs(Number(viewGrn.total_amount) - Number(viewGrn.paid_amount)).toLocaleString()}
-                                    </span>
+                                    {(() => {
+                                        const paidTotal = grnPayables.length > 0 ? grnPayables.reduce((s, p) => s + Number(p.amount), 0) : Number(viewGrn.paid_amount);
+                                        const balance = Number(viewGrn.total_amount) - paidTotal;
+                                        return (
+                                            <span className={balance > 0 ? 'text-destructive font-medium' : 'text-green-600 font-medium'}>
+                                                Rs. {Math.abs(balance).toLocaleString()}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>

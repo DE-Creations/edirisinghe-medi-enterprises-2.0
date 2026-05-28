@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             CustomerSeeder::class,
             VatPercentageSeeder::class,
+            PaymentMethodSeeder::class,
         ]);
     }
 }

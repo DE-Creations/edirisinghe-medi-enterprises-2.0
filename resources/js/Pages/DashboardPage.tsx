@@ -248,6 +248,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     DollarSign, ShoppingCart, Package, Users, TrendingUp, TrendingDown,
     AlertTriangle, Truck, PackageCheck, PackageX, ReceiptText, BadgeDollarSign,
+    Banknote, CalendarDays,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import axios from 'axios';
@@ -263,12 +264,16 @@ interface WeekStats {
     revenue_trend:  number;
     expenses_trend: number;
     invoice_trend:  number;
+    sales:          number;
+    sales_trend:    number;
 }
 
 interface MonthStats {
     revenue:       number;
     invoices:      number;
     revenue_trend: number;
+    sales:         number;
+    sales_trend:   number;
 }
 
 interface InventoryStats {
@@ -362,7 +367,7 @@ function DashboardPage() {
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <StatCard
-                        title="Week's Revenue"
+                        title="Weekly Sale"
                         value={`Rs. ${Number(stats.week.revenue).toLocaleString()}`}
                         icon={DollarSign}
                         iconVariant="default"
@@ -395,8 +400,32 @@ function DashboardPage() {
                 </div>
             </div>
 
-            {/* Activity Summary */}
+            {/* Sales — Actual Received */}
             <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Revenue — Actual Received
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <StatCard
+                        title="Week's Revenue"
+                        value={`Rs. ${Number(stats.week.sales).toLocaleString()}`}
+                        icon={Banknote}
+                        iconVariant="success"
+                        trend={trendText(stats.week.sales_trend)}
+                        trendUp={stats.week.sales_trend >= 0}
+                    />
+                    <StatCard
+                        title="Month's Revenue"
+                        value={`Rs. ${Number(stats.month.sales).toLocaleString()}`}
+                        icon={CalendarDays}
+                        iconVariant="success"
+                        trend={`${stats.month.sales_trend > 0 ? '+' : ''}${stats.month.sales_trend}% from last month`}
+                        trendUp={stats.month.sales_trend >= 0}
+                    />
+                </div>
+            </div>
+
+            {/* Activity Summary */}            <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                     Activity — This Week
                 </p>
@@ -460,7 +489,7 @@ function DashboardPage() {
                         trend="This calendar month"
                     />
                     <StatCard
-                        title="Month's Revenue"
+                        title="Monthly Sale"
                         value={`Rs. ${Number(stats.month.revenue).toLocaleString()}`}
                         icon={TrendingUp}
                         iconVariant="success"
@@ -546,7 +575,8 @@ function DashboardPage() {
                             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-destructive/70" /> Expenses
                         </span>
                     </div>
-                    <div className="grid grid-cols-6 lg:grid-cols-12 gap-2">
+                    <div className="overflow-x-auto">
+                    <div className="grid grid-cols-12 gap-2 min-w-[480px]">
                         {stats.monthly_chart.map((m, i) => {
                             const revPct = chartMax > 0 ? (m.revenue / chartMax) * 100 : 0;
                             const expPct = chartMax > 0 ? (m.expenses / chartMax) * 100 : 0;
@@ -567,6 +597,7 @@ function DashboardPage() {
                                 </div>
                             );
                         })}
+                    </div>
                     </div>
                 </CardContent>
             </Card>

@@ -21,13 +21,19 @@ class Grn extends Model
         'discount',
         'total_amount', 
         'paid_amount',
-        'payment_method',
+        'payment_method_id',
+        'is_vat',
+        'vat_amount',
         'payment_status',
         'notes'
     ];
 
     public function items(): HasMany { 
         return $this->hasMany(Grn_items::class , 'grn_id'); 
+    }
+
+    public function payables(): HasMany {
+        return $this->hasMany(Payable::class, 'grns_id');
     }
     
     public function supplier(): BelongsTo { 
@@ -36,5 +42,9 @@ class Grn extends Model
 
     public function user(): BelongsTo {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function paymentMethod(): BelongsTo {
+        return $this->belongsTo(PaymentMethod::class, 'payment_method_id');
     }
 }

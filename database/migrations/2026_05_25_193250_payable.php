@@ -11,7 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        //
+        Schema::create('payable', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('grns_id');
+            $table->decimal('amount', 15, 2);
+            $table->dateTime('dateTime')->useCurrent();
+            $table->string('note');
+
+            $table->foreign('grns_id')->references('id')->on('grns')->onDelete('cascade');
+        });
     }
 
     /**
@@ -19,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('payables');
     }
 };

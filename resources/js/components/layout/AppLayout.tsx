@@ -1,13 +1,12 @@
 ﻿import React, { useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import logoUrl from '../../../assets/logo.png';
 import {
   LayoutDashboard, FileText, Users, Package, ShoppingCart,
   Truck, ClipboardList, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Pill, Receipt, History,
-  UserCheck, Moon, Sun, Menu, TrendingUp, TrendingDown,
+  UserCheck, Menu, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,13 +25,13 @@ const navItems: NavItem[] = [
   { label: 'GRN History', path: '/grn-history', icon: FileText, roles: ['owner', 'admin'] },
   { label: 'Products', path: '/products', icon: Pill, roles: ['owner', 'admin'] },
   { label: 'Stock', path: '/stock', icon: Package, roles: ['owner', 'admin'] },
-  { label: 'Employees', path: '/employees', icon: Users, roles: ['owner', 'admin'] },
   { label: 'Customers', path: '/customers', icon: UserCheck, roles: ['owner', 'admin', 'cashier'] },
   { label: 'Suppliers', path: '/suppliers', icon: Truck, roles: ['owner', 'admin'] },
   { label: 'VAT Invoices', path: '/vat-invoices', icon: Receipt, roles: ['owner', 'admin'] },
   { label: 'Receivables', path: '/receivables', icon: TrendingUp, roles: ['owner', 'admin'] },
   { label: 'Payables', path: '/payables', icon: TrendingDown, roles: ['owner', 'admin'] },
   { label: 'Reports', path: '/reports', icon: BarChart3, roles: ['owner'] },
+  { label: 'Users', path: '/employees', icon: Users, roles: ['owner'] },
   { label: 'Settings', path: '/settings', icon: Settings, roles: ['owner', 'admin'] },
 ];
 
@@ -43,9 +42,8 @@ interface SidebarContentProps {
 }
 
 // Defined OUTSIDE AppLayout so React sees the same component type on every
-// render — prevents unmount/remount loop that breaks the theme toggle.
+// render — prevents unmount/remount loop.
 function SidebarContent({ collapsed, filteredNav, onNavClick }: SidebarContentProps) {
-  const { isDark, toggle } = useTheme();
   const { logout } = useAuth();
   const { url } = usePage();
   const pathname = url.split('?')[0];
@@ -96,14 +94,7 @@ function SidebarContent({ collapsed, filteredNav, onNavClick }: SidebarContentPr
         })}
       </nav>
 
-      <div className="border-t border-sidebar-border p-3 space-y-2">
-        <button
-          onClick={toggle}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-sidebar-foreground hover:bg-sidebar-accent w-full transition-colors"
-        >
-          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {!collapsed && <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>}
-        </button>
+      <div className="border-t border-sidebar-border p-3">
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-destructive hover:bg-destructive/10 w-full transition-colors"
@@ -182,6 +173,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </main>
+        <footer className="h-7 flex items-center justify-center border-t border-border bg-card flex-shrink-0">
+          <p className="text-[10px] text-muted-foreground tracking-wide">Developed by DE Creations (PVT) LTD</p>
+        </footer>
       </div>
     </div>
   );

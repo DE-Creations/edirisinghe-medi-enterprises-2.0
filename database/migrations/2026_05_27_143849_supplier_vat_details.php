@@ -11,13 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('company_profiles', function (Blueprint $table) {
+        Schema::create('supplier_vat_details', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('supplier_id');
             $table->string('company_name');
-            $table->string('address');
-            $table->string('tin_number');
-            $table->string('phone_number');
+            $table->string('nick_name');
+            $table->text('company_address');
+            $table->string('company_contact');
+            $table->string('vat_number');
             $table->timestamps();
+
+            $table->foreign('supplier_id')->references('id')->on('suppliers')->onDelete('cascade');
         });
     }
 
@@ -26,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('company_profiles');
+        Schema::dropIfExists('supplier_vat_details');
     }
 };

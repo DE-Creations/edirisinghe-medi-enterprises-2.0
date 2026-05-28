@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('invoice_items', function (Blueprint $table) {
             $table->id();
-            $table->string('invoice_id');
-            $table->string('stock_batch_id');
+            $table->unsignedBigInteger('invoice_id');
+            $table->unsignedBigInteger('stock_batch_id');
             $table->integer('quantity');
             $table->decimal('unit_price', 15, 2);
             $table->softDeletes();
@@ -22,6 +22,8 @@ return new class extends Migration
 
             $table->index('invoice_id');
             $table->index('stock_batch_id');
+            $table->foreign('invoice_id')->references('id')->on('invoices')->onDelete('cascade');
+            $table->foreign('stock_batch_id')->references('id')->on('stock_batches')->onDelete('cascade');
         });
     }
 

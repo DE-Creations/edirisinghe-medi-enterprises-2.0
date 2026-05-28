@@ -13,6 +13,13 @@ return new class extends Migration
     {
         Schema::create('receivable', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('invoice_id');
+            $table->decimal('amount', 15, 2);
+            $table->dateTime('dateTime');
+            $table->string('note');
+            $table->timestamp('created_at')->useCurrent();
+
+            $table->foreign('invoice_id')->references('id')->on('invoices')->onDelete('cascade');
         });
     }
 

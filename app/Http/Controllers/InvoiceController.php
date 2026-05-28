@@ -5,8 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Customers;
 use App\Models\Invoice;
 use App\Models\InvoiceItems;
+use App\Models\PaymentMethod;
+use App\Models\Receivable;
+use App\Models\Settings;
 use App\Models\StockBatches;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceController extends Controller
@@ -25,6 +30,7 @@ class InvoiceController extends Controller
         try {
 
             $customers = Customers::all(['id', 'name', 'is_vat']);
+            $payment_methods = PaymentMethod::all();
 
             // Get only needed columns; select on the base model, constrain relation columns
             $stock = StockBatches::with([
@@ -55,11 +61,49 @@ class InvoiceController extends Controller
             $nextNum    = 'INV-' . str_pad(($last ? $last->id + 1 : 1), 4, '0', STR_PAD_LEFT);
 
             return response()->json([
-                'customers'    => $customers,
-                'stock'        => $stock,
-                'next_number'  => $nextNum,
+                'customers'       => $customers,
+                'payment_methods' => $payment_methods,
+                'stock'           => $stock,
+                'next_number'     => $nextNum,
             ]);
 
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function searchStock(Request $request) {
+        try {
+            $searchTerm = $request->input('query');
+            
+            $stock = StockBatches::with([
+                    'product:id,generic_name,barcode_value,brand_id,category_id',
+                    'product.brand:id,name',
+                    'product.category:id,name',
+                ])
+                ->select('id', 'product_id', 'selling_price', 'current_quantity', 'expiry_date', 'batch_number')
+                ->where('current_quantity', '>', 0)
+                ->whereHas('product', function ($q) use ($searchTerm) {
+                    $q->where('barcode_value', $searchTerm)
+                      ->orWhere('generic_name', 'like', "%{$searchTerm}%");
+                })
+                ->get()
+                ->map(function ($batch) {
+                    return [
+                        'stock_batch_id'   => $batch->id,
+                        'product_id'       => $batch->product?->id,
+                        'generic_name'     => $batch->product?->generic_name,
+                        'barcode_value'    => $batch->product?->barcode_value,
+                        'brand'            => $batch->product?->brand?->name,
+                        'category'         => $batch->product?->category?->name,
+                        'selling_price'    => $batch->selling_price,
+                        'current_quantity' => $batch->current_quantity,
+                        'expiry_date'      => $batch->expiry_date,
+                        'batch_number'     => $batch->batch_number,
+                    ];
+                });
+
+            return response()->json(['stock' => $stock]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -68,7 +112,7 @@ class InvoiceController extends Controller
     public function all(Request $request) {
 
         $query = Invoice::with([
-                'customer:id,name',
+                'customer:id,name,contact_no,address',
                 'user:id,name',
                 'items:id,invoice_id,stock_batch_id,quantity,unit_price',
                 'items.stockBatch:id,batch_number,product_id',
@@ -101,7 +145,7 @@ class InvoiceController extends Controller
             'discount'           => 'required|numeric|min:0',
             'grand_total'        => 'required|numeric',
             'paid_amount'        => 'required|numeric|min:0',
-            'payment_method'     => 'required|in:cash,card,cheque',
+            'payment_method'     => 'required|exists:payment_methods,id',
             'items'              => 'required|array|min:1',
             'items.*.stock_batch_id' => 'required|exists:stock_batches,id',
             'items.*.quantity'   => 'required|integer|min:1',
@@ -116,7 +160,7 @@ class InvoiceController extends Controller
             $status = 'partial';
         }  
         
-        DB::transaction(function () use ($validated, $status) {
+        $invoice = DB::transaction(function () use ($validated, $status) {
 
             $last   = Invoice::withTrashed()->latest()->first();
             $next   = $last ? ($last->id + 1) : 1;
@@ -152,8 +196,75 @@ class InvoiceController extends Controller
                 $batch->update(['current_quantity' => $newQty]);                
             }
 
-            return response()->json(['message' => 'Invoice saved successfully'], 201);
+            // Record initial payment in receivable table
+            if ($validated['paid_amount'] > 0) {
+                $note = $status === 'paid'
+                    ? $invNum . ' Full Paid'
+                    : $invNum . ' First Payment';
+
+                Receivable::create([
+                    'invoice_id' => $invoice->id,
+                    'amount'     => $validated['paid_amount'],
+                    'dateTime'   => $validated['invoice_date'],
+                    'note'       => $note,
+                ]);
+            }
+
+            return $invoice;
         });
+
+        return response()->json(['message' => 'Invoice saved successfully', 'id' => $invoice->id], 201);
+    }
+
+    public function show($id)
+    {
+        $invoice = Invoice::with([
+            'customer:id,name,contact_no,address',
+            'user:id,name',
+            'items:id,invoice_id,stock_batch_id,quantity,unit_price',
+            'items.stockBatch:id,batch_number,product_id',
+            'items.stockBatch.product:id,generic_name',
+            'receivables',
+        ])->findOrFail($id);
+
+        return response()->json([
+            'invoice' => $invoice,
+        ]);
+    }
+
+    public function printView($id)
+    {
+        $invoice = Invoice::with([
+            'customer:id,name,contact_no,address',
+            'user:id,name',
+            'items:id,invoice_id,stock_batch_id,quantity,unit_price',
+            'items.stockBatch:id,batch_number,product_id',
+            'items.stockBatch.product:id,generic_name',
+            'receivables',
+            'paymentMethod:id,name',
+        ])->findOrFail($id);
+
+        $company  = Settings::first();
+        $logoPath = $this->resolveLogoPath();
+
+        $pdf = Pdf::loadView('pdf.invoice', [
+            'invoice'  => $invoice,
+            'company'  => $company,
+            'logoPath' => $logoPath,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Invoice-' . $invoice->invoice_number . '.pdf');
+    }
+
+    private function resolveLogoPath(): ?string
+    {
+        $manifestPath = public_path('build/manifest.json');
+        if (!file_exists($manifestPath)) {
+            return null;
+        }
+        $manifest = json_decode(file_get_contents($manifestPath), true);
+        $key      = 'resources/assets/logo.png';
+        return isset($manifest[$key]) ? public_path('build/' . $manifest[$key]['file']) : null;
     }
 
     public function delete($id) {

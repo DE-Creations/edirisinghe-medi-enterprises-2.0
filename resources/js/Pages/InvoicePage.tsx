@@ -325,8 +325,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
-import { FloatingInput } from '@/components/ui/floating-input';
 import SearchBar from '@/components/shared/SearchBar';
 import { ShoppingCart, Plus, Minus, Trash2, Printer, Barcode, Save } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
@@ -370,7 +370,8 @@ function InvoicePage() {
     const [invoiceNum,     setInvoiceNum]     = useState('INV-0001');
     const [invoiceDate,    setInvoiceDate]    = useState(format(new Date(), 'yyyy-MM-dd'));
     const [selectedCustomer, setSelectedCustomer] = useState<string>(String(WALK_IN_ID));
-    const [paymentMethod,  setPaymentMethod]  = useState<'cash' | 'card' | 'cheque'>('cash');
+    const [paymentMethod,  setPaymentMethod]  = useState<number>(0);
+    const [paymentMethods, setPaymentMethods] = useState<{ id: number; name: string }[]>([]);
     const [paidAmount,     setPaidAmount]     = useState('');
     const [discount,       setDiscount]       = useState('');
     const [barcodeInput,   setBarcodeInput]   = useState('');
@@ -414,6 +415,10 @@ function InvoicePage() {
             setCustomers(res.data.customers);
             setStockItems(res.data.stock);
             if (res.data.next_number) setInvoiceNum(res.data.next_number);
+            if (Array.isArray(res.data.payment_methods) && res.data.payment_methods.length > 0) {
+                setPaymentMethods(res.data.payment_methods);
+                setPaymentMethod((prev) => prev === 0 ? res.data.payment_methods[0].id : prev);
+            }
         } catch (e: any) {
             console.log('Form data error:', e.response?.data);
         }
@@ -490,16 +495,17 @@ function InvoicePage() {
         }
     };
 
-    // ✅ Save invoice
-    const handleSave = async () => {
+    // ✅ Save invoice (printAfterSave=true opens PDF after save)
+    const handleSave = async (printAfterSave = false) => {
         if (!selectedCustomer) { toast.error('Please select a customer.'); return; }
         if (cart.length === 0) { toast.error('Please add at least one product.'); return; }
+        if (!paymentMethod) { toast.error('Please select a payment method.'); return; }
 
         setSaving(true);
-        const toastId = toast.loading('Saving invoice...');
+        const toastId = toast.loading(printAfterSave ? 'Saving & preparing print...' : 'Saving invoice...');
 
         try {
-            await axios.post('/invoice/store', {
+            const res = await axios.post('/invoice/store', {
                 customer_id:    Number(selectedCustomer),
                 user_id:        user?.id,
                 invoice_date:   invoiceDate,
@@ -517,14 +523,18 @@ function InvoicePage() {
 
             toast.success('Invoice saved successfully!', { id: toastId });
 
+            if (printAfterSave && res.data.id) {
+                window.open(`/invoice/print/${res.data.id}`, '_blank');
+            }
+
             // Reset
             setCart([]);
             setSelectedCustomer(String(WALK_IN_ID));
             setDiscount('');
             setPaidAmount('');
-            setPaymentMethod('cash');
+            setPaymentMethod(paymentMethods[0]?.id ?? 0);
             await fetchNextNumber();
-            await fetchFormData(); // refresh stock quantities
+            await fetchFormData();
 
         } catch (error: any) {
             const msg = error.response?.data?.message || 'Failed to save invoice.';
@@ -619,13 +629,13 @@ function InvoicePage() {
                     ) : cart.map((item) => (
                         <div key={item.stock_batch_id}
                             className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 pr-2">
                                 <p className="text-xs font-medium truncate">{item.name}</p>
                                 <p className="text-[10px] text-muted-foreground">
                                     Rs. {Number(item.price).toLocaleString()} each
                                 </p>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-shrink-0">
                                 <button onClick={() => updateQty(item.stock_batch_id, -1)}
                                     className="h-6 w-6 rounded bg-background border border-border flex items-center justify-center hover:bg-accent">
                                     <Minus className="h-3 w-3" />
@@ -644,7 +654,7 @@ function InvoicePage() {
                                     <Plus className="h-3 w-3" />
                                 </button>
                             </div>
-                            <span className="text-xs font-bold w-16 text-right">
+                            <span className="text-xs font-bold w-28 text-right">
                                 Rs. {(item.qty * item.price).toLocaleString()}
                             </span>
                             <button onClick={() => removeFromCart(item.stock_batch_id)}
@@ -656,68 +666,103 @@ function InvoicePage() {
                 </div>
 
                 {/* Payment */}
-                <div className="border-t border-border p-4 space-y-3">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal ({cart.length} items)</span>
-                        <span className="font-semibold">Rs. {subTotal.toLocaleString()}</span>
-                    </div>
-                    {Number(discount) > 0 && (
-                        <div className="flex justify-between text-sm text-destructive">
-                            <span>Discount</span>
-                            <span>- Rs. {Number(discount).toLocaleString()}</span>
+                <div className="border-t border-border px-4 pt-3 pb-4 space-y-2">
+
+                    {/* Summary rows */}
+                    <div className="space-y-1">
+                        {/* Subtotal */}
+                        <div className="flex items-center justify-between py-1">
+                            <span className="text-xs text-muted-foreground">
+                                Subtotal ({cart.length} item{cart.length !== 1 ? 's' : ''})
+                            </span>
+                            <span className="text-sm font-semibold">Rs. {subTotal.toLocaleString()}</span>
                         </div>
-                    )}
-                    {vatRate > 0 && (
-                        <div className="flex justify-between text-sm text-muted-foreground">
-                            <span>VAT ({vatRate.toFixed(2)}%)</span>
-                            <span>+ Rs. {vatAmount.toLocaleString()}</span>
+
+                        {/* Discount — borderless inline input */}
+                        <div className="flex items-center justify-between py-1">
+                            <span className="text-xs text-muted-foreground">Discount</span>
+                            <div className="flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground">Rs.</span>
+                                <input type="number" placeholder="0" value={discount}
+                                    onChange={(e) => setDiscount(e.target.value)}
+                                    className="w-20 text-right bg-transparent border-0 border-b border-dashed
+                                               border-muted-foreground/40 focus:outline-none focus:border-primary
+                                               text-sm font-semibold text-destructive pb-px
+                                               [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
+                                               [&::-webkit-inner-spin-button]:appearance-none" />
+                            </div>
                         </div>
-                    )}
 
-                    {/* Payment method */}
-                    <div className="flex gap-2">
-                        {(['cash', 'card', 'cheque'] as const).map((m) => (
-                            <button key={m} onClick={() => setPaymentMethod(m)}
-                                className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors
-                                    ${paymentMethod === m
-                                        ? 'bg-primary text-primary-foreground border-primary'
-                                        : 'border-border hover:bg-muted'}`}>
-                                {m === 'cash' ? '💵 Cash' : m === 'card' ? '💳 Card' : '🏦 Cheque'}
-                            </button>
-                        ))}
+                        {/* VAT */}
+                        {vatRate > 0 && (
+                            <div className="flex items-center justify-between py-1">
+                                <span className="text-xs text-muted-foreground">VAT ({vatRate.toFixed(2)}%)</span>
+                                <span className="text-sm text-muted-foreground">+ Rs. {vatAmount.toLocaleString()}</span>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
-                        <FloatingInput label="Discount (Rs.)" type="number"
-                            value={discount}
-                            onChange={(e) => setDiscount(e.target.value)}
-                            className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                        <FloatingInput label="Paid Amount" type="number"
-                            value={paidAmount}
-                            onChange={(e) => setPaidAmount(e.target.value)}
-                            className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                        <FloatingInput label="Balance"
-                            value={`Rs. ${Math.abs(balance).toLocaleString()}`}
-                            readOnly
-                            className={`cursor-default ${balance >= 0
-                                ? 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200'
-                                : 'text-destructive bg-destructive/5 border-destructive/30'}`} />
+                    {/* TOTAL — prominent */}
+                    <div className="bg-primary/10 rounded-lg px-4 py-2.5 flex items-center justify-between">
+                        <span className="text-[10px] font-semibold text-primary/60 uppercase tracking-wider">Total</span>
+                        <span className="text-2xl font-bold text-primary">Rs. {grandTotal.toLocaleString()}</span>
                     </div>
 
-                    <div className="bg-primary/10 rounded-lg p-3 text-center">
-                        <p className="text-[10px] text-muted-foreground">TOTAL</p>
-                        <p className="text-2xl font-bold text-primary">
-                            Rs. {grandTotal.toLocaleString()}
-                        </p>
+                    {/* Paid Amount + Balance */}
+                    <div className="space-y-1">
+                        {/* Paid Amount — borderless inline input */}
+                        <div className="flex items-center justify-between py-1">
+                            <span className="text-xs text-muted-foreground">Paid Amount</span>
+                            <div className="flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground">Rs.</span>
+                                <input type="number" placeholder="0" value={paidAmount}
+                                    onChange={(e) => setPaidAmount(e.target.value)}
+                                    className="w-24 text-right bg-transparent border-0 border-b border-dashed
+                                               border-muted-foreground/40 focus:outline-none focus:border-primary
+                                               text-sm font-semibold pb-px
+                                               [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
+                                               [&::-webkit-inner-spin-button]:appearance-none" />
+                            </div>
+                        </div>
+
+                        {/* Balance */}
+                        <div className={`flex items-center justify-between px-3 py-2 rounded-lg
+                            ${balance >= 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-destructive/5'}`}>
+                            <span className={`text-xs font-medium
+                                ${balance >= 0 ? 'text-green-700 dark:text-green-400' : 'text-destructive'}`}>
+                                {balance >= 0 ? 'Change' : 'Balance Due'}
+                            </span>
+                            <span className={`text-sm font-bold
+                                ${balance >= 0 ? 'text-green-700 dark:text-green-400' : 'text-destructive'}`}>
+                                Rs. {Math.abs(balance).toLocaleString()}
+                            </span>
+                        </div>
                     </div>
 
-                    <div className="flex gap-2">
-                        <Button onClick={handleSave} disabled={cart.length === 0 || saving}
+                    {/* Payment Method dropdown + Action Buttons */}
+                    <div className="flex gap-2 pt-1">
+                        {/* Payment method select */}
+                        <Select
+                            value={paymentMethod ? String(paymentMethod) : ''}
+                            onValueChange={(val) => setPaymentMethod(Number(val))}>
+                            <SelectTrigger className={`flex-1 h-9 text-xs font-medium ${!paymentMethod ? 'border-destructive ring-1 ring-destructive' : ''}`}>
+                                <SelectValue placeholder="Select method" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {paymentMethods.map((m) => (
+                                    <SelectItem key={m.id} value={String(m.id)}>
+                                        {m.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Button onClick={() => handleSave(false)} disabled={cart.length === 0 || saving || !paymentMethod}
                             className="flex-1 gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                             <Save className="h-4 w-4" />
                             {saving ? 'Saving...' : 'Save'}
                         </Button>
-                        <Button disabled={cart.length === 0}
+                        <Button onClick={() => handleSave(true)} disabled={cart.length === 0 || saving || !paymentMethod}
                             className="flex-1 gap-2">
                             <Printer className="h-4 w-4" /> Save & Print
                         </Button>

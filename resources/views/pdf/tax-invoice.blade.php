@@ -340,7 +340,7 @@
                     }
                 @endphp
                 <tr>
-                    <td class="text-center">{{ $record['refNo'] }}</td>
+                    <td class="text-center">{{ $index + 1 }}</td>
                     <td class="text-center">{{ $record['invoiceItem'] }}</td>
                     <td class="text-center">{{ $record['quantity'] }}</td>
                     <td class="text-center">{{ number_format($record['unitPrice'], 2) }}</td>

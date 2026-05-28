@@ -732,7 +732,7 @@ function PayablesPage() {
     const [grns,         setGrns]         = useState<GrnPayable[]>([]);
     const [expenses,     setExpenses]     = useState<ExpenseItem[]>([]);
     const [search,       setSearch]       = useState('');
-    const [statusFilter, setStatusFilter] = useState<'all' | 'outstanding' | 'paid'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'outstanding' | 'paid'>('outstanding');
     const [loading,      setLoading]      = useState(false);
 
     // Payment modal
@@ -757,6 +757,10 @@ function PayablesPage() {
     const [expPaid,     setExpPaid]     = useState('');
     const [expNotes,    setExpNotes]    = useState('');
     const [deleteExpId, setDeleteExpId] = useState<number | null>(null);
+
+    // GRN detail modal
+    const [grnDetailOpen, setGrnDetailOpen] = useState(false);
+    const [grnDetailData, setGrnDetailData] = useState<{ grn: any; payments: PaymentRecord[] } | null>(null);
 
     useEffect(() => {
         fetchGrns();
@@ -845,6 +849,17 @@ function PayablesPage() {
             setHistoryTotal(total);
             setHistoryOpen(true);
         } catch (e) { console.log(e); }
+    };
+
+    // Open GRN detail modal
+    const openGrnDetail = async (id: number) => {
+        try {
+            const res = await axios.get(`/grn/show/${id}`);
+            setGrnDetailData(res.data);
+            setGrnDetailOpen(true);
+        } catch (e) {
+            toast.error('Failed to load GRN details.');
+        }
     };
 
     // Add expense
@@ -991,8 +1006,8 @@ function PayablesPage() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-1">
-                                                <button onClick={() => openHistory('grn', g.id, g.grn_number, g.total_amount)}
-                                                    className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title="History">
+                                                <button onClick={() => openGrnDetail(g.id)}
+                                                    className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title="View GRN Details">
                                                     <Eye className="h-3.5 w-3.5" />
                                                 </button>
                                                 {g.outstanding > 0 && (
@@ -1097,7 +1112,7 @@ function PayablesPage() {
                         </div>
                         <div>
                             <label className="text-xs font-medium text-muted-foreground mb-1 block">Notes (optional)</label>
-                            <Input value={payNotes} onChange={(e) => setPayNotes(e.target.value)} placeholder="e.g. Bank transfer, cheque no..." />
+                            <Input value={payNotes} onChange={(e) => setPayNotes(e.target.value)} placeholder="e.g. Balance Payment" />
                         </div>
                         <div className="flex justify-end gap-2 pt-2">
                             <Button variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button>
@@ -1187,6 +1202,106 @@ function PayablesPage() {
             </Modal>
 
             <ConfirmDialog open={!!deleteExpId} onClose={() => setDeleteExpId(null)} onConfirm={handleDeleteExpense} />
+
+            {/* GRN Detail Modal */}
+            <Modal open={grnDetailOpen} onClose={() => setGrnDetailOpen(false)}
+                title={grnDetailData ? `GRN Details — ${grnDetailData.grn.grn_number}` : 'GRN Details'} size="lg">
+                {grnDetailData && (() => {
+                    const g = grnDetailData.grn;
+                    const totalPaid = grnDetailData.payments.reduce((s: number, p: PaymentRecord) => s + Number(p.amount), 0);
+                    const outstanding = Number(g.total_amount) - totalPaid;
+                    return (
+                        <div className="space-y-4">
+                            {/* Meta */}
+                            <div className="grid grid-cols-2 gap-3 p-3 bg-muted/40 rounded-lg text-sm">
+                                <div><span className="text-muted-foreground text-xs">Date:</span><span className="ml-2 font-medium">{g.received_date?.split('T')[0]}</span></div>
+                                <div><span className="text-muted-foreground text-xs">Supplier:</span><span className="ml-2 font-medium">{g.supplier?.name}</span></div>
+                                <div><span className="text-muted-foreground text-xs">Supplier Invoice:</span><span className="ml-2 font-medium">{g.supplier_invoice_no || '—'}</span></div>
+                                <div><span className="text-muted-foreground text-xs">Received By:</span><span className="ml-2 font-medium">{g.user?.name || '—'}</span></div>
+                                <div><span className="text-muted-foreground text-xs">Payment Method:</span><span className="ml-2 font-medium capitalize">{g.payment_method}</span></div>
+                                <div>
+                                    <span className="text-muted-foreground text-xs">Status:</span>
+                                    <span className={`ml-2 text-xs font-semibold px-2 py-0.5 rounded-full ${statusBadge(g.payment_status)}`}>{g.payment_status}</span>
+                                </div>
+                            </div>
+
+                            {/* Items */}
+                            <div>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Items</p>
+                                <div className="border rounded-lg overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b bg-muted/50">
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">#</th>
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Item</th>
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Batch</th>
+                                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Qty</th>
+                                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Cost Price</th>
+                                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {g.items?.map((item: any, i: number) => (
+                                                <tr key={item.id} className="border-b last:border-0">
+                                                    <td className="px-3 py-2">{i + 1}</td>
+                                                    <td className="px-3 py-2 font-medium">{item.product?.generic_name}</td>
+                                                    <td className="px-3 py-2 font-mono text-xs">{item.batch_number || '—'}</td>
+                                                    <td className="px-3 py-2 text-right">{item.quantity}</td>
+                                                    <td className="px-3 py-2 text-right">Rs. {Number(item.unit_price).toLocaleString()}</td>
+                                                    <td className="px-3 py-2 text-right font-semibold">Rs. {(item.quantity * Number(item.unit_price)).toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="flex justify-between items-center mt-2 px-3 text-sm font-semibold">
+                                    <span className="text-muted-foreground text-xs">Grand Total</span>
+                                    <span>Rs. {Number(g.total_amount).toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            {/* Payment History */}
+                            <div>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Payment History</p>
+                                <div className="border rounded-lg overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b bg-muted/50">
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Date</th>
+                                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Amount</th>
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">By</th>
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {grnDetailData.payments.length === 0 ? (
+                                                <tr><td colSpan={4} className="text-center py-4 text-muted-foreground text-xs">No payments recorded.</td></tr>
+                                            ) : grnDetailData.payments.map((p: PaymentRecord) => (
+                                                <tr key={p.id} className="border-b last:border-0">
+                                                    <td className="px-3 py-2">{p.date}</td>
+                                                    <td className="px-3 py-2 text-right font-medium text-green-600">Rs. {Number(p.amount).toLocaleString()}</td>
+                                                    <td className="px-3 py-2 text-muted-foreground">{p.user?.name || '—'}</td>
+                                                    <td className="px-3 py-2 text-muted-foreground">{p.notes ?? '—'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="flex justify-between items-center mt-2 px-3 text-sm pt-2 border-t">
+                                    <span className="text-muted-foreground text-xs">Total Paid</span>
+                                    <span className="font-semibold text-green-600">Rs. {totalPaid.toLocaleString()}</span>
+                                </div>
+                                {outstanding > 0 && (
+                                    <div className="flex justify-between items-center px-3 text-sm">
+                                        <span className="text-muted-foreground text-xs">Outstanding</span>
+                                        <span className="font-semibold text-destructive">Rs. {outstanding.toLocaleString()}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
+            </Modal>
         </div>
     );
 }

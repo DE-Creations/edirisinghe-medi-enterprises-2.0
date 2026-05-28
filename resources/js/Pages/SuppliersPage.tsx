@@ -3,19 +3,11 @@ import AppShell from '@/AppShell';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import SearchBar from '@/components/shared/SearchBar';
 import Modal from '@/components/shared/Modal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import axios from 'axios';
-
-interface Company {
-  id: number;
-  name: string;
-  mobile: string;
-  address: string;
-}
 
 interface Supplier {
   id: number;
@@ -23,25 +15,34 @@ interface Supplier {
   contact_no: string;
   email: string;
   address: string;
-  company_id: number;
-  company?: Company; 
+  is_vat: number;
+  vatDetail?: {
+    company_name: string;
+    nick_name: string;
+    company_address: string;
+    company_contact: string;
+    vat_number: string;
+  };
 }
 
 
 function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editSup, setEditSup] = useState<Supplier | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [form, setForm] = useState<Partial<Supplier>>({});
-  const [showNewCompany, setShowNewCompany] = useState(false);
-  const [companyForm, setCompanyForm] = useState<Partial<Company>>({});
+  const [form, setForm] = useState<Partial<Supplier> & {
+    vat_company_name?: string;
+    vat_nick_name?: string;
+    vat_company_address?: string;
+    vat_company_contact?: string;
+    vat_number?: string;
+  }>({});
+
 
   useEffect(() => {
     fetchSuppliers();
-    fetchCompanies();
   }, []);
 
   const fetchSuppliers = async () => {
@@ -53,18 +54,8 @@ function SuppliersPage() {
     }
   };
 
-  const fetchCompanies = async () => {
-    try {
-      const res = await axios.get('/companies/all');
-      setCompanies(res.data);
-    } catch (error: any) {
-      console.log('Companies error:', error.response?.data);
-    }
-  };
-
   const filtered = suppliers.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.company?.name.toLowerCase().includes(search.toLowerCase())
+    s.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleSave = async () => {
@@ -72,11 +63,16 @@ function SuppliersPage() {
       // UPDATE
       try {
         const res = await axios.post(`/suppliers/update/${editSup.id}`, {
-          name:       form.name,
-          contact_no: form.contact_no,
-          email:      form.email,
-          address:    form.address,
-          company_id: form.company_id,
+          name:                form.name,
+          contact_no:          form.contact_no,
+          email:               form.email,
+          address:             form.address,
+          is_vat:              form.is_vat ? 1 : 0,
+          vat_company_name:    form.vat_company_name,
+          vat_nick_name:       form.vat_nick_name,
+          vat_company_address: form.vat_company_address,
+          vat_company_contact: form.vat_company_contact,
+          vat_number:          form.vat_number,
         });
         setSuppliers((prev) => prev.map((s) => s.id === editSup.id ? res.data : s));
         setEditSup(null);
@@ -90,11 +86,16 @@ function SuppliersPage() {
       // STORE
       try {
         const res = await axios.post('/suppliers/store', {
-          name:       form.name,
-          contact_no: form.contact_no,
-          email:      form.email,
-          address:    form.address,
-          company_id: form.company_id,
+          name:                form.name,
+          contact_no:          form.contact_no,
+          email:               form.email,
+          address:             form.address,
+          is_vat:              form.is_vat ? 1 : 0,
+          vat_company_name:    form.vat_company_name,
+          vat_nick_name:       form.vat_nick_name,
+          vat_company_address: form.vat_company_address,
+          vat_company_contact: form.vat_company_contact,
+          vat_number:          form.vat_number,
         });
         setSuppliers((prev) => [...prev, res.data]);
         setShowAdd(false);
@@ -112,16 +113,7 @@ function SuppliersPage() {
     setDeleteId(null);
   };
 
-  const handleAddCompany = async () => {
-    if (companyForm.name) {
-      const res = await axios.post('/companies/store', companyForm);
-      const newCompany: Company = res.data;
-      setCompanies((prev) => [...prev, newCompany]);
-      setForm({ ...form, company_id: newCompany.id }); // set company_id not name
-      setCompanyForm({});
-      setShowNewCompany(false);
-    }
-  };
+
 
   return (
         <div className="space-y-4 animate-fade-in">
@@ -140,7 +132,6 @@ function SuppliersPage() {
             <tr className="border-b bg-muted/50">
               <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Name</th>
               <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Mobile</th>
-              <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Company</th>
               <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Actions</th>
             </tr>
           </thead>
@@ -148,17 +139,21 @@ function SuppliersPage() {
             {filtered.map((s) => (
               <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
                 <td className="px-4 py-3 text-sm font-medium">{s.name}</td>
-                <td className="px-4 py-3 text-sm">{s.contact_no}</td>       {/* changed from mobile */}
-                <td className="px-4 py-3 text-sm">{s.company?.name}</td>    {/* changed from s.company */}
+                <td className="px-4 py-3 text-sm">{s.contact_no}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-1">
                     <button onClick={() => { 
                       setForm({
-                        name:       s.name,
-                        contact_no: s.contact_no,
-                        email:      s.email,
-                        address:    s.address,
-                        company_id: s.company_id,
+                        name:                s.name,
+                        contact_no:          s.contact_no,
+                        email:               s.email,
+                        address:             s.address,
+                        is_vat:              s.is_vat,
+                        vat_company_name:    s.vatDetail?.company_name    || '',
+                        vat_nick_name:       s.vatDetail?.nick_name       || '',
+                        vat_company_address: s.vatDetail?.company_address || '',
+                        vat_company_contact: s.vatDetail?.company_contact || '',
+                        vat_number:          s.vatDetail?.vat_number      || '',
                       }); 
                       setEditSup(s); 
                     }} className="p-1.5 rounded-lg hover:bg-muted">
@@ -198,54 +193,43 @@ function SuppliersPage() {
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Address</label>
             <Input value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Company</label>
-            <div className="flex gap-1">
-              {/* Store company_id (number) not company name */}
-              <Select
-                value={form.company_id ? String(form.company_id) : ''}
-                onValueChange={(v) => setForm({ ...form, company_id: Number(v) })}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Select company" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="icon" onClick={() => setShowNewCompany(true)}>
-                <Plus className="h-4 w-4" />
-              </Button>
+          {/* VAT Registered */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={!!form.is_vat}
+              onChange={(e) => setForm({ ...form, is_vat: e.target.checked ? 1 : 0 })} />
+            <span className="text-sm">VAT Registered Supplier</span>
+          </label>
+
+          {!!form.is_vat && (
+            <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border border-border">
+              <p className="col-span-2 text-xs font-semibold text-muted-foreground">VAT Supplier Details</p>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Company Name</label>
+                <Input value={form.vat_company_name || ''} onChange={(e) => setForm({ ...form, vat_company_name: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Nick Name</label>
+                <Input value={form.vat_nick_name || ''} onChange={(e) => setForm({ ...form, vat_nick_name: e.target.value })} />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Company Address</label>
+                <Input value={form.vat_company_address || ''} onChange={(e) => setForm({ ...form, vat_company_address: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Contact Number</label>
+                <Input value={form.vat_company_contact || ''} onChange={(e) => setForm({ ...form, vat_company_contact: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">VAT Number</label>
+                <Input value={form.vat_number || ''} onChange={(e) => setForm({ ...form, vat_number: e.target.value })} />
+              </div>
             </div>
-          </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => { setShowAdd(false); setEditSup(null); setForm({}); }}>
               Cancel
             </Button>
             <Button onClick={handleSave}>{editSup ? 'Update' : 'Add'} Supplier</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Add Company Modal */}
-      <Modal open={showNewCompany} onClose={() => setShowNewCompany(false)} title="Add Company">
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Company Name</label>
-            <Input value={companyForm.name || ''} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Mobile</label>
-            <Input value={companyForm.mobile || ''} onChange={(e) => setCompanyForm({ ...companyForm, mobile: e.target.value })} />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Address</label>
-            <Input value={companyForm.address || ''} onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })} />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setShowNewCompany(false)}>Cancel</Button>
-            <Button onClick={handleAddCompany}>Add Company</Button>
           </div>
         </div>
       </Modal>

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-const THEME_KEY = 'pharmapos-theme';
+const THEME_KEY = 'app-theme';
 
 interface ThemeContextType {
   isDark: boolean;

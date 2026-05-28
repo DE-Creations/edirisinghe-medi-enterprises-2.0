@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Grn;
 use App\Models\Expense;
 use App\Models\Product;
+use App\Models\Receivable;
 use App\Models\StockBatches;
 use Carbon\Carbon;
 
@@ -31,16 +32,20 @@ class DashboardController extends Controller
         $weekInvoices  = Invoice::whereBetween('invoice_date', [$weekStart, $weekEnd])->count();
         $weekCustomers = Invoice::whereBetween('invoice_date', [$weekStart, $weekEnd])
                             ->distinct('customer_id')->count('customer_id');
+        $weekSales     = Receivable::whereBetween('dateTime', [$weekStart, $weekEnd])->sum('amount');
 
         // ── Last Week (for trend) ──
         $lastWeekRevenue  = Invoice::whereBetween('invoice_date', [$lastWeekStart, $lastWeekEnd])->sum('grand_total');
         $lastWeekInvoices = Invoice::whereBetween('invoice_date', [$lastWeekStart, $lastWeekEnd])->count();
         $lastWeekExpenses = Expense::whereBetween('date', [$lastWeekStart, $lastWeekEnd])->sum('amount');
+        $lastWeekSales    = Receivable::whereBetween('dateTime', [$lastWeekStart, $lastWeekEnd])->sum('amount');
 
         // ── This Month ──
-        $monthRevenue  = Invoice::whereBetween('invoice_date', [$monthStart, $monthEnd])->sum('grand_total');
-        $monthInvoices = Invoice::whereBetween('invoice_date', [$monthStart, $monthEnd])->count();
+        $monthRevenue    = Invoice::whereBetween('invoice_date', [$monthStart, $monthEnd])->sum('grand_total');
+        $monthInvoices   = Invoice::whereBetween('invoice_date', [$monthStart, $monthEnd])->count();
         $lastMonthRevenue = Invoice::whereBetween('invoice_date', [$lastMonthStart, $lastMonthEnd])->sum('grand_total');
+        $monthSales      = Receivable::whereBetween('dateTime', [$monthStart, $monthEnd])->sum('amount');
+        $lastMonthSales  = Receivable::whereBetween('dateTime', [$lastMonthStart, $lastMonthEnd])->sum('amount');
 
         // ── Products & Stock ──
         $totalProducts = Product::count();
@@ -88,10 +93,10 @@ class DashboardController extends Controller
             ];
         })->values();
 
-        // ── Monthly Chart (last 12 months) ──
+        // ── Monthly Chart (Jan–Dec of current year) ──
         $monthlyData = [];
-        for ($i = 11; $i >= 0; $i--) {
-            $month      = $now->copy()->subMonths($i);
+        for ($i = 1; $i <= 12; $i++) {
+            $month      = $now->copy()->month($i);
             $mStart     = $month->copy()->startOfMonth();
             $mEnd       = $month->copy()->endOfMonth();
             $revenue    = Invoice::whereBetween('invoice_date', [$mStart, $mEnd])->sum('grand_total');
@@ -116,6 +121,12 @@ class DashboardController extends Controller
         $monthRevTrend = $lastMonthRevenue > 0
             ? round((($monthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100, 1)
             : 0;
+        $weekSalesTrend = $lastWeekSales > 0
+            ? round((($weekSales - $lastWeekSales) / $lastWeekSales) * 100, 1)
+            : 0;
+        $monthSalesTrend = $lastMonthSales > 0
+            ? round((($monthSales - $lastMonthSales) / $lastMonthSales) * 100, 1)
+            : 0;
 
         return response()->json([
             'week' => [
@@ -128,11 +139,15 @@ class DashboardController extends Controller
                 'revenue_trend'  => $revenueTrend,
                 'expenses_trend' => $expensesTrend,
                 'invoice_trend'  => $invoiceTrend,
+                'sales'          => $weekSales,
+                'sales_trend'    => $weekSalesTrend,
             ],
             'month' => [
                 'revenue'        => $monthRevenue,
                 'invoices'       => $monthInvoices,
                 'revenue_trend'  => $monthRevTrend,
+                'sales'          => $monthSales,
+                'sales_trend'    => $monthSalesTrend,
             ],
             'inventory' => [
                 'total_products'     => $totalProducts,
