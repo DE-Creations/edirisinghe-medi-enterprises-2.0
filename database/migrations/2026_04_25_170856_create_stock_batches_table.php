@@ -17,7 +17,6 @@ return new class extends Migration
             $table->date('mfd')->nullable();
             $table->date('expiry_date')->nullable();
             $table->decimal('purchase_price', 15, 2);
-            $table->decimal('selling_price', 15, 2);
             $table->integer('initial_quantity');
             $table->integer('current_quantity');
             $table->unsignedBigInteger('product_id');
