@@ -19,6 +19,7 @@ return new class extends Migration
             $table->date('invoice_date');
             $table->decimal('sub_total', 15, 2)->default(0);
             $table->decimal('discount', 15, 2)->default(0);
+            $table->decimal('vat_percentage', 5, 2)->default(0);
             $table->decimal('grand_total', 15, 2)->default(0);
             $table->decimal('paid_amount', 15, 2)->default(0);
             $table->unsignedBigInteger('payment_method');

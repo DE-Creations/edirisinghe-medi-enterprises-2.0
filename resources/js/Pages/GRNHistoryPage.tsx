@@ -240,13 +240,12 @@ import { toast } from '@/components/ui/sonner';
 import axios from 'axios';
 
 interface GrnItem {
-    id:            number;
-    product:       { generic_name: string };
-    quantity:      number;
-    unit_price:    number;
-    selling_price: number;
-    batch_number:  string | null;
-    expiry_date:   string | null;
+    id:           number;
+    product:      { generic_name: string };
+    quantity:     number;
+    unit_price:   number;
+    batch_number: string | null;
+    expiry_date:  string | null;
 }
 
 interface GrnPayable {
@@ -264,6 +263,7 @@ interface Grn {
     user:                { name: string };
     sub_total:           number;
     discount:            number;
+    vat_amount:          number;
     total_amount:        number;
     paid_amount:         number;
     payment_method:      string;
@@ -507,11 +507,19 @@ function GRNHistoryPage() {
                                     <span className="text-muted-foreground">Sub Total</span>
                                     <span>Rs. {Number(viewGrn.sub_total).toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Discount</span>
-                                    <span>Rs. {Number(viewGrn.discount).toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between font-semibold text-base">
+                                {Number(viewGrn.discount) > 0 && (
+                                    <div className="flex justify-between text-destructive">
+                                        <span>Discount</span>
+                                        <span>- Rs. {Number(viewGrn.discount).toLocaleString()}</span>
+                                    </div>
+                                )}
+                                {Number(viewGrn.vat_amount) > 0 && (
+                                    <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                                        <span>VAT</span>
+                                        <span>+ Rs. {Number(viewGrn.vat_amount).toLocaleString()}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between font-semibold text-base pt-1 border-t border-border">
                                     <span>Total</span>
                                     <span className="text-primary">Rs. {Number(viewGrn.total_amount).toLocaleString()}</span>
                                 </div>

@@ -12,18 +12,19 @@ class Grn extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'grn_number', 
+        'grn_number',
         'supplier_id',
         'user_id',
         'supplier_invoice_no',
         'received_date',
         'sub_total',
         'discount',
-        'total_amount', 
+        'total_amount',
         'paid_amount',
         'payment_method_id',
         'is_vat',
         'vat_amount',
+        'vat_percentage',
         'payment_status',
         'notes'
     ];

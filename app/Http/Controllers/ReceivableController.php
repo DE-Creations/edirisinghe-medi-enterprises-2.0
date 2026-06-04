@@ -4,25 +4,18 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Invoice;
-use App\Models\Payment;
 use App\Models\Receivable;
 
 class ReceivableController extends Controller
 {
-    // get all invoices with payment infomations
     public function invoices() {
 
-        $invoices = Invoice::with(['customer', 'user'])
+        $invoices = Invoice::with(['customer', 'receivables'])
             ->latest()
             ->get()
             ->map(function ($inv) {
-                $collected = Payment::where('reference_type', 'invoice')
-                    ->where('reference_id', $inv->id)
-                    ->sum('amount');
-
-                // Also include paid_amount from invoice itself
-                $totalCollected = $inv->paid_amount + $collected;
-                $outstanding = max(0, $inv->grand_total - $totalCollected);
+                $collected   = $inv->receivables->sum('amount');
+                $outstanding = max(0, $inv->grand_total - $collected);
 
                 return [
                     'id'             => $inv->id,
@@ -31,28 +24,24 @@ class ReceivableController extends Controller
                     'customer'       => $inv->customer?->name ?? 'Walk-in Customer',
                     'grand_total'    => $inv->grand_total,
                     'paid_amount'    => $inv->paid_amount,
-                    'collected'      => $totalCollected,
+                    'collected'      => $collected,
                     'outstanding'    => $outstanding,
-                    'status'         => $outstanding <= 0 ? 'paid' : ($totalCollected > 0 ? 'partial' : 'unpaid'),
+                    'status'         => $inv->status,
                 ];
             });
 
-        return response()->json($invoices);        
+        return response()->json($invoices);
     }
 
-    // get payment history for invoice
     public function paymentHistory($id) {
 
-        $payments = Payment::where('reference_type', 'invoice')
-            ->where('reference_id', $id)
-            ->with('user')
-            ->latest()
-            ->get();
+        $records = Receivable::where('invoice_id', $id)
+            ->orderByDesc('dateTime')
+            ->get(['id', 'amount', 'dateTime', 'note']);
 
-        return response()->json($payments);
+        return response()->json($records);
     }
 
-    // record payment received
     public function recordPayment(Request $request) {
 
         $validated = $request->validate([
@@ -63,43 +52,28 @@ class ReceivableController extends Controller
             'user_id'      => 'required|exists:users,id',
         ]);
 
-        $invoice = Invoice::findOrFail($validated['reference_id']);     
-        
-        // Calculate outstanding
-        $collected = Payment::where('reference_type', 'invoice')
-            ->where('reference_id', $invoice->id)
-            ->sum('amount');
-        $totalCollected = $invoice->paid_amount + $collected;
-        $outstanding = $invoice->grand_total - $totalCollected;
+        $invoice = Invoice::findOrFail($validated['reference_id']);
+
+        $collected   = $invoice->receivables()->sum('amount');
+        $outstanding = $invoice->grand_total - $collected;
 
         if ($validated['amount'] > $outstanding) {
             return response()->json([
                 'message' => "Payment exceeds outstanding amount of Rs. {$outstanding}"
             ], 422);
-        }  
-        
-        $payment = Payment::create([
-            'reference_type' => 'invoice',
-            'reference_id'   => $validated['reference_id'],
-            'amount'         => $validated['amount'],
-            'date'           => $validated['date'],
-            'notes'          => $validated['notes'] ?? null,
-            'user_id'        => $validated['user_id'],
-        ]);
+        }
 
-        // Record in receivable table
-        Receivable::create([
+        $receivable = Receivable::create([
             'invoice_id' => $validated['reference_id'],
             'amount'     => $validated['amount'],
             'dateTime'   => $validated['date'],
             'note'       => $validated['notes'] ?? 'Additional Payment',
         ]);
 
-        // Update invoice status
-        $newTotal = $invoice->paid_amount + $collected + $validated['amount'];
-        $newStatus = $newTotal >= $invoice->grand_total ? 'paid' : 'partial';
+        $newCollected = $collected + $validated['amount'];
+        $newStatus    = $newCollected >= $invoice->grand_total ? 'paid' : 'partial';
         $invoice->update(['status' => $newStatus]);
 
-        return response()->json($payment, 201);        
+        return response()->json($receivable, 201);
     }
 }

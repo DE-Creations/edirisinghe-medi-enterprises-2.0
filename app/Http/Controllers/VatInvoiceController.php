@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Settings;
 use App\Models\Invoice;
 use App\Models\VatInvoice;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class VatInvoiceController extends Controller
 {
@@ -59,10 +60,10 @@ class VatInvoiceController extends Controller
         // Mark invoice as VAT issued
         $invoice->update(['is_vat_invoice_issued' => true]);
 
-        return view('pdf.tax-invoice', $this->buildViewData(
+        return Pdf::loadView('pdf.tax-invoice', $this->buildViewData(
             $invoice, $vatInvoice, $customer, $customerVat,
             $totalAmount, $vatPercentage, $vatAmount, $subTotal
-        ));
+        ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoiceNumber . '.pdf');
     }
 
     public function viewHistoryPdf(Request $request)
@@ -73,7 +74,7 @@ class VatInvoiceController extends Controller
         $customer   = $vatInvoice->customer;
         $customerVat = DB::table('customers_vat_details')->where('customer_id', $customer->id)->first();
 
-        return view('pdf.tax-invoice', $this->buildViewData(
+        return Pdf::loadView('pdf.tax-invoice-history', $this->buildViewData(
             $invoice,
             $vatInvoice,
             $customer,
@@ -82,7 +83,7 @@ class VatInvoiceController extends Controller
             $vatInvoice->vat_percentage,
             $vatInvoice->vat_amount,
             $vatInvoice->sub_total
-        ));
+        ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoice->vat_invoice_number . '.pdf');
     }
 
     private function buildViewData($invoice, $vatInvoice, $customer, $customerVat, $totalAmount, $vatPercentage, $vatAmount, $subTotal): array

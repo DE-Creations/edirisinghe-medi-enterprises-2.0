@@ -499,7 +499,6 @@ interface StockBatch {
   mfd: string | null;
   expiry_date: string | null;
   purchase_price: number;
-  selling_price: number;
   initial_quantity: number;
   current_quantity: number;
   grn_number: string | null;
@@ -544,7 +543,6 @@ function StockPage() {
     product_id:     '',
     quantity:       '',
     purchase_price: '',
-    selling_price:  '',
     batch_number:   '',
     expiry_date:    '',
     mfd:            '',
@@ -584,7 +582,7 @@ const openOpeningStock = () => {
     fetchProducts();
     setStockForm({
         product_id: '', quantity: '', purchase_price: '',
-        selling_price: '', batch_number: '', expiry_date: '', mfd: '',
+        batch_number: '', expiry_date: '', mfd: '',
     });
     setShowOpeningStock(true);
 };
@@ -599,7 +597,6 @@ const handleSaveOpeningStock = async () => {
             product_id:     Number(stockForm.product_id),
             quantity:       Number(stockForm.quantity),
             purchase_price: Number(stockForm.purchase_price || 0),
-            selling_price:  Number(stockForm.selling_price  || 0),
             batch_number:   stockForm.batch_number  || null,
             expiry_date:    stockForm.expiry_date   || null,
             mfd:            stockForm.mfd           || null,
@@ -744,7 +741,6 @@ const productOptions = products.map((p) => ({
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">GRN</th>
                 <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3">Stock</th>
                 <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Cost (Rs.)</th>
-                <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Selling (Rs.)</th>
                 <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Actions</th>
               </tr>
             </thead>
@@ -783,9 +779,6 @@ const productOptions = products.map((p) => ({
                     <td className="px-4 py-3 text-sm text-right">
                       {Number(s.purchase_price).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-right">
-                      {Number(s.selling_price).toLocaleString()}
-                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
                         <button onClick={() => openAdj(s)}
@@ -805,7 +798,7 @@ const productOptions = products.map((p) => ({
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
                     No stock found. Add products via GRN.
                   </td>
                 </tr>
@@ -848,11 +841,6 @@ const productOptions = products.map((p) => ({
             <FloatingInput label="Purchase Price (Rs.)" type="number"
                 value={stockForm.purchase_price}
                 onChange={(e) => setStockForm({ ...stockForm, purchase_price: e.target.value })}
-                className={spinnerOff} />
-
-            <FloatingInput label="Selling Price (Rs.)" type="number"
-                value={stockForm.selling_price}
-                onChange={(e) => setStockForm({ ...stockForm, selling_price: e.target.value })}
                 className={spinnerOff} />
 
             <div className="flex flex-col gap-1.5">

@@ -24,6 +24,7 @@ return new class extends Migration
             $table->decimal('paid_amount', 15, 2)->default(0);
             $table->boolean('is_vat')->default(0);
             $table->decimal('vat_amount', 15, 2)->default(0);
+            $table->decimal('vat_percentage', 5, 2)->default(0);
             $table->unsignedBigInteger('payment_method_id')->nullable();
             $table->enum('payment_status', ['paid', 'partial', 'unpaid'])->default('unpaid');
             $table->softDeletes();

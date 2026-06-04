@@ -25,6 +25,7 @@ use App\Http\Controllers\ExpensesCategoryController;
 use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\VatInvoiceController;
 use App\Http\Controllers\VatInvoiceApiController;
+use App\Http\Controllers\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -97,16 +98,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/opening',               [StockController::class, 'openingStock']);
         Route::post('/adjust/{batchId}',      [StockController::class, 'adjust']);
         Route::delete('/delete/{id}',         [StockController::class, 'delete']);
-    });
-
-    // ── Employees ──────────────────────────────────────────────────────────
-    Route::get('/employees', fn() => Inertia::render('EmployeesPage'));
-    Route::prefix('/employees')->group(function () {
-        Route::get('/next-number',    [UserController::class, 'nextNumber']);
-        Route::get('/all',            [UserController::class, 'all']);
-        Route::post('/store',         [UserController::class, 'store']);
-        Route::post('/update/{id}',   [UserController::class, 'update']);
-        Route::delete('/delete/{id}', [UserController::class, 'delete']);
     });
 
     // ── Customers ──────────────────────────────────────────────────────────
@@ -197,6 +188,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/grns',                   [PayableController::class, 'grns']);
         Route::get('/expenses',               [PayableController::class, 'expenses']);
         Route::get('/history/{type}/{id}',    [PayableController::class, 'paymentHistory']);
+        Route::get('/expense/next-number',    [PayableController::class, 'nextExpenseNumber']);
         Route::post('/expense/store',         [PayableController::class, 'storeExpense']);
         Route::delete('/expense/{id}',        [PayableController::class, 'deleteExpense']);
         Route::post('/payment',               [PayableController::class, 'recordPayment']);
@@ -219,8 +211,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/vat-invoice/generate',  [VatInvoiceController::class, 'generatePdf']);
     Route::post('/vat-invoice/reprint',   [VatInvoiceController::class, 'viewHistoryPdf']);
 
+    // ── Notifications ──────────────────────────────────────────────────────
+    Route::get('/notifications/overdue-invoices', [NotificationController::class, 'overdueInvoices']);
+
     // ── Other Pages ────────────────────────────────────────────────────────
-    Route::get('/reports',      fn() => Inertia::render('ReportsPage'));
 
     // ── Fallback ───────────────────────────────────────────────────────────
     Route::fallback(fn() => Inertia::render('NotFound'));

@@ -522,12 +522,34 @@ function InvoiceHistoryPage() {
                                         <span>- Rs. {Number(viewInv.discount).toLocaleString()}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between font-semibold text-base pt-1 border-t">
-                                    <span>Total</span>
+                                {(() => {
+                                    const vat = Number(viewInv.grand_total) - Number(viewInv.sub_total) + Number(viewInv.discount);
+                                    return vat > 0 ? (
+                                        <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                                            <span>VAT</span>
+                                            <span>+ Rs. {vat.toLocaleString()}</span>
+                                        </div>
+                                    ) : null;
+                                })()}
+                                <div className="flex justify-between font-semibold text-base pt-1 border-t border-border">
+                                    <span>Grand Total</span>
                                     <span className="text-primary">
                                         Rs. {Number(viewInv.grand_total).toLocaleString()}
                                     </span>
                                 </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Paid</span>
+                                    <span className="text-green-600">Rs. {Number(viewInv.paid_amount).toLocaleString()}</span>
+                                </div>
+                                {(() => {
+                                    const balance = Number(viewInv.grand_total) - Number(viewInv.paid_amount);
+                                    return balance > 0 ? (
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Balance</span>
+                                            <span className="text-destructive font-medium">Rs. {balance.toLocaleString()}</span>
+                                        </div>
+                                    ) : null;
+                                })()}
                             </div>
                         </div>
                     )}

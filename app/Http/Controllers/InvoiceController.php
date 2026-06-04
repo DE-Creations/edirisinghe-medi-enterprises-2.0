@@ -38,7 +38,7 @@ class InvoiceController extends Controller
                     'product.brand:id,name',
                     'product.category:id,name',
                 ])
-                ->select('id', 'product_id', 'selling_price', 'current_quantity', 'expiry_date', 'batch_number')
+                ->select('id', 'product_id', 'purchase_price', 'current_quantity', 'expiry_date', 'batch_number')
                 ->where('current_quantity', '>', 0)
                 ->get()
                 ->map(function ($batch) {
@@ -49,7 +49,7 @@ class InvoiceController extends Controller
                         'barcode_value'    => $batch->product?->barcode_value,
                         'brand'            => $batch->product?->brand?->name,
                         'category'         => $batch->product?->category?->name,
-                        'selling_price'    => $batch->selling_price,
+                        'purchase_price'   => $batch->purchase_price,
                         'current_quantity' => $batch->current_quantity,
                         'expiry_date'      => $batch->expiry_date,
                         'batch_number'     => $batch->batch_number,
@@ -81,7 +81,7 @@ class InvoiceController extends Controller
                     'product.brand:id,name',
                     'product.category:id,name',
                 ])
-                ->select('id', 'product_id', 'selling_price', 'current_quantity', 'expiry_date', 'batch_number')
+                ->select('id', 'product_id', 'purchase_price', 'current_quantity', 'expiry_date', 'batch_number')
                 ->where('current_quantity', '>', 0)
                 ->whereHas('product', function ($q) use ($searchTerm) {
                     $q->where('barcode_value', $searchTerm)
@@ -96,7 +96,7 @@ class InvoiceController extends Controller
                         'barcode_value'    => $batch->product?->barcode_value,
                         'brand'            => $batch->product?->brand?->name,
                         'category'         => $batch->product?->category?->name,
-                        'selling_price'    => $batch->selling_price,
+                        'purchase_price'   => $batch->purchase_price,
                         'current_quantity' => $batch->current_quantity,
                         'expiry_date'      => $batch->expiry_date,
                         'batch_number'     => $batch->batch_number,
@@ -143,6 +143,7 @@ class InvoiceController extends Controller
             'invoice_date'       => 'required|date',
             'sub_total'          => 'required|numeric',
             'discount'           => 'required|numeric|min:0',
+            'vat_percentage'     => 'sometimes|numeric|min:0',
             'grand_total'        => 'required|numeric',
             'paid_amount'        => 'required|numeric|min:0',
             'payment_method'     => 'required|exists:payment_methods,id',
@@ -173,6 +174,7 @@ class InvoiceController extends Controller
                 'invoice_date'   => $validated['invoice_date'],
                 'sub_total'      => $validated['sub_total'],
                 'discount'       => $validated['discount'],
+                'vat_percentage' => $validated['vat_percentage'] ?? 0,
                 'grand_total'    => $validated['grand_total'],
                 'paid_amount'    => $validated['paid_amount'],
                 'payment_method' => $validated['payment_method'],
@@ -251,7 +253,7 @@ class InvoiceController extends Controller
             'invoice'  => $invoice,
             'company'  => $company,
             'logoPath' => $logoPath,
-        ])->setPaper('a4', 'portrait');
+        ])->setPaper([0, 0, 684, 792], 'portrait');
 
         return $pdf->stream('Invoice-' . $invoice->invoice_number . '.pdf');
     }

@@ -87,7 +87,7 @@ class GrnController extends Controller
         $query = Grn::with([
                 'supplier:id,name',
                 'user:id,name',
-                'items:id,grn_id,product_id,quantity,unit_price,selling_price,batch_number,expiry_date',
+                'items:id,grn_id,product_id,quantity,unit_price,batch_number,expiry_date',
                 'items.product:id,generic_name',
             ])
             ->latest();
@@ -121,12 +121,12 @@ class GrnController extends Controller
             'payment_method_id'      => 'nullable|exists:payment_methods,id',
             'is_vat'                 => 'sometimes|boolean',
             'vat_amount'             => 'sometimes|numeric|min:0',
+            'vat_percentage'         => 'sometimes|numeric|min:0',
             'notes'                  => 'nullable|string',
             'items'                  => 'required|array|min:1',
             'items.*.product_id'     => 'required|exists:products,id',
             'items.*.quantity'       => 'required|integer|min:1',
             'items.*.unit_price'     => 'required|numeric|min:0',
-            'items.*.selling_price'  => 'required|numeric|min:0',
             'items.*.batch_number'   => 'nullable|string',
             'items.*.expiry_date'    => 'nullable|date',
             'items.*.mfd_date'       => 'nullable|date',
@@ -161,6 +161,7 @@ class GrnController extends Controller
                 'payment_method_id'   => $validated['payment_method_id'] ?? null,
                 'is_vat'              => $validated['is_vat'] ?? false,
                 'vat_amount'          => $validated['vat_amount'] ?? 0,
+                'vat_percentage'      => $validated['vat_percentage'] ?? 0,
                 'payment_status'      => $status,
                 'notes'               => $validated['notes'] ?? null,
             ]);
@@ -172,7 +173,6 @@ class GrnController extends Controller
                     'product_id'    => $item['product_id'],
                     'quantity'      => $item['quantity'],
                     'unit_price'    => $item['unit_price'],
-                    'selling_price' => $item['selling_price'],
                     'batch_number'  => $item['batch_number'] ?? null,
                     'expiry_date'   => $item['expiry_date'] ?? null,
                     'mfd_date'      => $item['mfd_date'] ?? null,
@@ -186,7 +186,6 @@ class GrnController extends Controller
                     'mfd'              => $item['mfd_date'] ?? null,
                     'expiry_date'      => $item['expiry_date'] ?? null,
                     'purchase_price'   => $item['unit_price'],
-                    'selling_price'    => $item['selling_price'],
                     'initial_quantity' => $item['quantity'],
                     'current_quantity' => $item['quantity'],
                 ]);
@@ -217,7 +216,7 @@ class GrnController extends Controller
         $grn = Grn::with([
             'supplier:id,name,contact_no,address',
             'user:id,name',
-            'items:id,grn_id,product_id,quantity,unit_price,selling_price,batch_number,expiry_date',
+            'items:id,grn_id,product_id,quantity,unit_price,batch_number,expiry_date',
             'items.product:id,generic_name',
             'payables',
         ])->findOrFail($id);
@@ -242,7 +241,7 @@ class GrnController extends Controller
         $grn = Grn::with([
             'supplier:id,name,contact_no,address',
             'user:id,name',
-            'items:id,grn_id,product_id,quantity,unit_price,selling_price,batch_number,expiry_date',
+            'items:id,grn_id,product_id,quantity,unit_price,batch_number,expiry_date',
             'items.product:id,generic_name',
             'payables',
             'paymentMethod:id,name',
@@ -255,7 +254,7 @@ class GrnController extends Controller
             'grn'      => $grn,
             'company'  => $company,
             'logoPath' => $logoPath,
-        ])->setPaper('a4', 'portrait');
+        ])->setPaper([0, 0, 684, 792], 'portrait');
 
         return $pdf->stream('GRN-' . $grn->grn_number . '.pdf');
     }

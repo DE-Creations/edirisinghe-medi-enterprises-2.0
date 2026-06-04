@@ -36,20 +36,15 @@ class PayableController extends Controller
 
     // get all expenses
     public function expenses() {
-        $expenses = Expense::latest()->get()->map(function ($exp) {
-            $paid        = $exp->paid_amount;
-            $outstanding = max(0, $exp->amount - $paid);
+        $expenses = Expense::with('category')->latest()->get()->map(function ($exp) {
             return [
                 'id'             => $exp->id,
                 'expense_number' => $exp->expense_number,
                 'date'           => $exp->date,
                 'description'    => $exp->description,
-                'category'       => $exp->category,
+                'category'       => $exp->category?->name ?? '—',
                 'amount'         => $exp->amount,
-                'paid'           => $paid,
-                'outstanding'    => $outstanding,
                 'notes'          => $exp->notes,
-                'status'         => $outstanding <= 0 ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
             ];
         });
 
@@ -82,9 +77,8 @@ class PayableController extends Controller
         $validated = $request->validate([
             'date'        => 'required|date',
             'description' => 'required|string',
-            'category'    => 'required|string',
+            'category_id' => 'required|exists:expenses_category,id',
             'amount'      => 'required|numeric|min:0',
-            'paid_amount' => 'nullable|numeric|min:0',
             'notes'       => 'nullable|string',
             'user_id'     => 'required|exists:users,id',
         ]);
@@ -94,25 +88,23 @@ class PayableController extends Controller
         $next = $last ? ($last->id + 1) : 1;
         $expNumber = 'EXP-' . str_pad($next, 4, '0', STR_PAD_LEFT);
 
-        // paid amount and status
-        $paidAmount = $validated['paid_amount'] ?? 0;
-        $status = 'unpaid';
-        if ($paidAmount >= $validated['amount']) $status = 'paid';
-        elseif ($paidAmount > 0) $status = 'partial';
-
         $expense = Expense::create([
             'expense_number' => $expNumber,
             'date'           => $validated['date'],
             'description'    => $validated['description'],
-            'category'       => $validated['category'],
+            'category_id'    => $validated['category_id'],
             'amount'         => $validated['amount'],
-            'paid_amount'    => $paidAmount,
-            'status'         => $status,
             'notes'          => $validated['notes'] ?? null,
             'user_id'        => $validated['user_id'],
         ]);
 
         return response()->json($expense, 201);
+    }
+
+    public function nextExpenseNumber() {
+        $last = Expense::withTrashed()->latest()->first();
+        $next = $last ? ($last->id + 1) : 1;
+        return response()->json(['number' => 'EXP-' . str_pad($next, 4, '0', STR_PAD_LEFT)]);
     }   
     
     public function deleteExpense($id) {
@@ -139,18 +131,12 @@ class PayableController extends Controller
             $total = $ref->total_amount;
             $initialPaid = $ref->paid_amount;
         } else {
-            $ref = Expense::findOrFail($validated['reference_id']);
-            $total = $ref->amount;
-            $initialPaid = $ref->paid_amount;
+            return response()->json(['message' => 'Expenses do not support additional payments.'], 422);
         }
 
-        // Calculate total paid — GRN uses payable table; expense uses paid_amount column
-        if ($validated['reference_type'] === 'grn') {
-            $payablesSum = Payable::where('grns_id', $validated['reference_id'])->sum('amount');
-            $totalPaid   = $payablesSum > 0 ? $payablesSum : $initialPaid;
-        } else {
-            $totalPaid = $initialPaid; // expense.paid_amount already tracks cumulative paid
-        }
+        // Calculate total paid — GRN uses payable table
+        $payablesSum = Payable::where('grns_id', $validated['reference_id'])->sum('amount');
+        $totalPaid   = $payablesSum > 0 ? $payablesSum : $initialPaid;
 
         $outstanding = $total - $totalPaid;
         if ($validated['amount'] > $outstanding) {
@@ -159,27 +145,18 @@ class PayableController extends Controller
             ], 422);
         }
 
-        if ($validated['reference_type'] === 'grn') {
-            $grn          = $ref;
-            $newTotalPaid = $totalPaid + $validated['amount'];
-            $newStatus    = $newTotalPaid >= $grn->total_amount ? 'paid' : 'partial';
-            $grn->update(['payment_status' => $newStatus]);
+        $grn          = $ref;
+        $newTotalPaid = $totalPaid + $validated['amount'];
+        $newStatus    = $newTotalPaid >= $grn->total_amount ? 'paid' : 'partial';
+        $grn->update(['payment_status' => $newStatus]);
 
-            $payable = Payable::create([
-                'grns_id'  => $validated['reference_id'],
-                'amount'   => $validated['amount'],
-                'dateTime' => $validated['date'],
-                'note'     => $validated['notes'] ?? 'Additional Payment',
-            ]);
+        $payable = Payable::create([
+            'grns_id'  => $validated['reference_id'],
+            'amount'   => $validated['amount'],
+            'dateTime' => $validated['date'],
+            'note'     => $validated['notes'] ?? 'Additional Payment',
+        ]);
 
-            return response()->json($payable, 201);
-        } else {
-            // Expense — update paid_amount directly
-            $newTotalPaid = $totalPaid + $validated['amount'];
-            $newStatus    = $newTotalPaid >= $total ? 'paid' : 'partial';
-            $ref->update(['paid_amount' => $newTotalPaid, 'status' => $newStatus]);
-
-            return response()->json($ref->fresh(), 201);
-        }        
+        return response()->json($payable, 201);
     }
 }

@@ -3,12 +3,13 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { useAuth } from '@/contexts/AuthContext';
 import logoUrl from '../../../assets/logo.png';
 import {
-  LayoutDashboard, FileText, Users, Package, ShoppingCart,
-  Truck, ClipboardList, BarChart3, Settings, LogOut,
+  LayoutDashboard, FileText, Package, ShoppingCart,
+  Truck, ClipboardList, Settings, LogOut,
   ChevronLeft, ChevronRight, Pill, Receipt, History,
   UserCheck, Menu, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import NotificationBell from './NotificationBell';
 
 interface NavItem {
   label: string;
@@ -30,8 +31,6 @@ const navItems: NavItem[] = [
   { label: 'VAT Invoices', path: '/vat-invoices', icon: Receipt, roles: ['owner', 'admin'] },
   { label: 'Receivables', path: '/receivables', icon: TrendingUp, roles: ['owner', 'admin'] },
   { label: 'Payables', path: '/payables', icon: TrendingDown, roles: ['owner', 'admin'] },
-  { label: 'Reports', path: '/reports', icon: BarChart3, roles: ['owner'] },
-  { label: 'Users', path: '/employees', icon: Users, roles: ['owner'] },
   { label: 'Settings', path: '/settings', icon: Settings, roles: ['owner', 'admin'] },
 ];
 
@@ -161,6 +160,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </h2>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <span className="text-xs px-2 py-1 rounded-full bg-accent text-accent-foreground font-medium capitalize">
               {user?.role}
             </span>
