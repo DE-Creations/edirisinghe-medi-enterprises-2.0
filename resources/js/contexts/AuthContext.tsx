@@ -318,8 +318,9 @@
 //     return ctx;
 // }
 
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
+import { router } from '@inertiajs/react';
 
 export type UserRole = 'owner' | 'admin' | 'cashier';
 
@@ -350,17 +351,21 @@ interface AuthProviderProps {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ auth, children }: AuthProviderProps) {
-    const user: User | null = auth?.user ?? null;
+    const [user, setUser] = useState<User | null>(auth?.user ?? null);
 
-    const login = async (username: string, password: string): Promise<boolean> => {
-        try {
-            // Use Inertia router for form submission
-            // This is handled in LoginPage directly
-            return true;
-        } catch {
-            return false;
-        }
-    };
+    useEffect(() => {
+        // AuthProvider is outside the Inertia <App> tree, so it receives auth only
+        // from the initial page (login page → user is null). Subscribe to Inertia
+        // navigation events to sync user state after every page visit, including
+        // the redirect that fires immediately after a successful login.
+        const removeListener = router.on('navigate', (event) => {
+            const pageAuth = (event.detail.page.props as any)?.auth;
+            setUser(pageAuth?.user ?? null);
+        });
+        return removeListener;
+    }, []);
+
+    const login = async (_username: string, _password: string): Promise<boolean> => true;
 
     const logout = async () => {
         try {
@@ -374,7 +379,7 @@ export function AuthProvider({ auth, children }: AuthProviderProps) {
         <AuthContext.Provider value={{
             user,
             isAuthenticated: !!user,
-            bootstrapped: true, // ✅ always true - Laravel handles this
+            bootstrapped: true,
             login,
             logout,
         }}>

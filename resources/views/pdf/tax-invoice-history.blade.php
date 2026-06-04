@@ -7,12 +7,12 @@
     <style>
         /* Global & Page Setup */
         @page {
-            margin: 10mm;
-            size: A4;
+            margin: 15mm;
+            size: 9.5in 11in portrait;
         }
 
         html {
-            background: #e0e0e0;
+            background: #fff;
         }
 
         body {
@@ -20,26 +20,11 @@
             font-size: 10pt;
             color: #000;
             line-height: 1.3;
-            width: 210mm;
-            min-height: 297mm;
-            margin: 10mm auto;
-            padding: 10mm;
+            width: 100%;
+            margin: 0;
+            padding: 0 0 30px 0;
             background: #fff;
             box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-        }
-
-        @media print {
-            html {
-                background: #fff;
-            }
-            body {
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                display: block;
-            }
         }
 
         table {
@@ -134,8 +119,7 @@
         .party-box {
             border: 1px solid #000;
             padding: 10px;
-            height: 140px;
-            /* Fixed height for consistency */
+            min-height: 80px;
             vertical-align: top;
         }
 
@@ -148,8 +132,8 @@
         .items-table {
             width: 100%;
             margin-bottom: 0;
-            /* Connects with totals if needed, or separate */
             border: 1px solid #000;
+            table-layout: fixed;
         }
 
         .items-table th {
@@ -202,21 +186,16 @@
 
         /* Footer */
         .footer {
-            margin-top: auto;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background: #fff;
+            margin-top: 0;
             padding-top: 5px;
             font-size: 8pt;
             border-top: 1px solid #000;
-        }
-
-        @media print {
-            .footer {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                margin-top: 0;
-                background: #fff;
-            }
         }
 
         .footer-left {
@@ -308,11 +287,11 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 10%;">Reference</th>
-                <th style="width: 30%;">Description of Goods or Services</th>
-                <th style="width: 15%;">Quantity</th>
+                <th style="width: 8%;">Reference</th>
+                <th style="width: 34%;">Description of Goods or Services</th>
+                <th style="width: 13%;">Quantity</th>
                 <th style="width: 15%;">Unit Price<br>(Rs.)</th>
-                <th style="width: 20%;">Amount<br>Excluding VAT<br>(Rs.)</th>
+                <th style="width: 30%;">Amount<br>Excluding VAT<br>(Rs.)</th>
             </tr>
         </thead>
         <tbody>
@@ -331,17 +310,17 @@
                         echo '</tbody></table>';
                         echo '<div style="page-break-after: always;"></div>';
                         echo '<table class="items-table"><thead><tr>';
-                        echo '<th style="width: 10%;">Reference</th>';
-                        echo '<th style="width: 30%;">Description of Goods or Services</th>';
-                        echo '<th style="width: 15%;">Quantity</th>';
+                        echo '<th style="width: 8%;">Reference</th>';
+                        echo '<th style="width: 34%;">Description of Goods or Services</th>';
+                        echo '<th style="width: 13%;">Quantity</th>';
                         echo '<th style="width: 15%;">Unit Price<br>(Rs.)</th>';
-                        echo '<th style="width: 20%;">Amount<br>Excluding VAT<br>(Rs.)</th>';
+                        echo '<th style="width: 30%;">Amount<br>Excluding VAT<br>(Rs.)</th>';
                         echo '</tr></thead><tbody>';
                     }
                 @endphp
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
-                    <td class="text-center">{{ $record['invoiceItem'] }}</td>
+                    <td class="text-left">{{ $record['invoiceItem'] }}</td>
                     <td class="text-center">{{ $record['quantity'] }}</td>
                     <td class="text-center">{{ number_format($record['unitPrice'], 2) }}</td>
                     <td class="text-right">{{ number_format($record['amountExclVat'], 2) }}</td>

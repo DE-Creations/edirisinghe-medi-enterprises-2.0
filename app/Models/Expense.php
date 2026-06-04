@@ -14,15 +14,17 @@ class Expense extends Model
         'expense_number',
         'date',
         'description',
-        'category',
+        'category_id',
         'amount',
-        'paid_amount',
-        'status',
         'notes',
         'user_id',
-    ];    
+    ];
+
+    public function category(): BelongsTo {
+        return $this->belongsTo(ExpensesCategory::class, 'category_id');
+    }
 
     public function user(): BelongsTo {
         return $this->belongsTo(User::class, 'user_id');
-    }    
+    }
 }

@@ -374,20 +374,12 @@ interface InvoiceReceivable {
     status:         string;
 }
 
-interface PaymentRecord {
-    id:     number;
-    amount: number;
-    date:   string;
-    notes:  string | null;
-    user?:  { name: string };
-}
-
 function ReceivablesPage() {
     const { user } = useAuth();
-    const [invoices,     setInvoices]     = useState<InvoiceReceivable[]>([]);
-    const [search,       setSearch]       = useState('');
-    const [statusFilter, setStatusFilter] = useState<'all' | 'outstanding' | 'paid'>('all');
-    const [loading,      setLoading]      = useState(false);
+    const [invoices, setInvoices] = useState<InvoiceReceivable[]>([]);
+    const [tab,      setTab]      = useState<'all' | 'outstanding' | 'paid'>('outstanding');
+    const [search,   setSearch]   = useState('');
+    const [loading,  setLoading]  = useState(false);
 
     // Payment modal
     const [payOpen,   setPayOpen]   = useState(false);
@@ -396,11 +388,9 @@ function ReceivablesPage() {
     const [payAmount, setPayAmount] = useState('');
     const [payNotes,  setPayNotes]  = useState('');
 
-    // History modal
-    const [historyOpen,    setHistoryOpen]    = useState(false);
-    const [historyLabel,   setHistoryLabel]   = useState('');
-    const [historyRecords, setHistoryRecords] = useState<PaymentRecord[]>([]);
-    const [historyTotal,   setHistoryTotal]   = useState(0);
+    // Invoice detail modal
+    const [invDetailOpen, setInvDetailOpen] = useState(false);
+    const [invDetailData, setInvDetailData] = useState<any | null>(null);
 
     useEffect(() => { fetchInvoices(); }, []);
 
@@ -419,11 +409,15 @@ function ReceivablesPage() {
     const filtered = invoices.filter((inv) => {
         const matchSearch = inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
             inv.customer.toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === 'all' ||
-            (statusFilter === 'outstanding' && inv.outstanding > 0) ||
-            (statusFilter === 'paid' && inv.outstanding <= 0);
-        return matchSearch && matchStatus;
+        const matchTab = tab === 'all' ||
+            (tab === 'outstanding' && inv.outstanding > 0) ||
+            (tab === 'paid' && inv.outstanding <= 0);
+        return matchSearch && matchTab;
     });
+
+    const countAll         = invoices.length;
+    const countOutstanding = invoices.filter(i => i.outstanding > 0).length;
+    const countPaid        = invoices.filter(i => i.outstanding <= 0).length;
 
     const openPay = (inv: InvoiceReceivable) => {
         setPayTarget({ id: inv.id, number: inv.invoice_number, outstanding: inv.outstanding });
@@ -454,13 +448,11 @@ function ReceivablesPage() {
         }
     };
 
-    const openHistory = async (inv: InvoiceReceivable) => {
+    const openInvoiceDetail = async (inv: InvoiceReceivable) => {
         try {
-            const res = await axios.get(`/receivables/history/${inv.id}`);
-            setHistoryRecords(res.data);
-            setHistoryLabel(inv.invoice_number);
-            setHistoryTotal(inv.grand_total);
-            setHistoryOpen(true);
+            const res = await axios.get(`/invoice/show/${inv.id}`);
+            setInvDetailData(res.data.invoice);
+            setInvDetailOpen(true);
         } catch (e) { console.log(e); }
     };
 
@@ -488,19 +480,19 @@ function ReceivablesPage() {
                 </div>
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-                <div className="w-full sm:w-72">
-                    <SearchBar value={search} onChange={setSearch} placeholder="Search invoice # or customer..." />
-                </div>
-                <div className="flex gap-2">
-                    {(['all', 'outstanding', 'paid'] as const).map((s) => (
-                        <button key={s} onClick={() => setStatusFilter(s)}
-                            className={cn('px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
-                                statusFilter === s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
-                            {s}
+            {/* Tabs + Search */}
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <div className="flex gap-1 bg-muted rounded-lg p-1">
+                    {(['all', 'outstanding', 'paid'] as const).map((t) => (
+                        <button key={t} onClick={() => setTab(t)}
+                            className={cn('px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-colors',
+                                tab === t ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                            {t === 'all' ? `All (${countAll})` : t === 'outstanding' ? `Outstanding (${countOutstanding})` : `Paid (${countPaid})`}
                         </button>
                     ))}
+                </div>
+                <div className="w-full sm:w-72">
+                    <SearchBar value={search} onChange={setSearch} placeholder="Search invoice # or customer..." />
                 </div>
             </div>
 
@@ -541,7 +533,7 @@ function ReceivablesPage() {
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => openHistory(inv)}
+                                            <button onClick={() => openInvoiceDetail(inv)}
                                                 className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title="History">
                                                 <Eye className="h-3.5 w-3.5" />
                                             </button>
@@ -592,40 +584,121 @@ function ReceivablesPage() {
                 )}
             </Modal>
 
-            {/* Payment History Modal */}
-            <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title={`Payment History — ${historyLabel}`} size="lg">
-                <div className="space-y-3">
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b bg-muted/50">
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Date</th>
-                                    <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Amount</th>
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">By</th>
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {historyRecords.length === 0 ? (
-                                    <tr><td colSpan={4} className="text-center py-6 text-muted-foreground">No payments recorded yet.</td></tr>
-                                ) : historyRecords.map((p) => (
-                                    <tr key={p.id} className="border-b last:border-0">
-                                        <td className="px-4 py-2">{p.date}</td>
-                                        <td className="px-4 py-2 text-right font-medium text-green-600">Rs. {Number(p.amount).toLocaleString()}</td>
-                                        <td className="px-4 py-2 text-muted-foreground">{p.user?.name || '—'}</td>
-                                        <td className="px-4 py-2 text-muted-foreground">{p.notes ?? '—'}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t text-sm">
-                        <span className="text-muted-foreground">Total Collected</span>
-                        <span className="font-bold text-green-600">
-                            Rs. {historyRecords.reduce((s, p) => s + Number(p.amount), 0).toLocaleString()}
-                        </span>
-                    </div>
-                </div>
+            {/* Invoice Detail Modal */}
+            <Modal open={invDetailOpen} onClose={() => setInvDetailOpen(false)}
+                title={invDetailData ? `Invoice — ${invDetailData.invoice_number}` : 'Invoice Details'} size="lg">
+                {invDetailData && (() => {
+                    const inv = invDetailData;
+                    const vat = Number(inv.grand_total) - Number(inv.sub_total) + Number(inv.discount);
+                    const collected = inv.receivables?.reduce((s: number, r: any) => s + Number(r.amount), 0) ?? 0;
+                    const outstanding = Math.max(0, Number(inv.grand_total) - collected);
+                    return (
+                        <div className="space-y-4">
+                            {/* Meta */}
+                            <div className="grid grid-cols-2 gap-3 p-3 bg-muted/40 rounded-lg text-sm">
+                                <div><span className="text-muted-foreground text-xs">Date:</span><span className="ml-2 font-medium">{inv.invoice_date}</span></div>
+                                <div><span className="text-muted-foreground text-xs">Customer:</span><span className="ml-2 font-medium">{inv.customer?.name ?? 'Walk-in'}</span></div>
+                                <div><span className="text-muted-foreground text-xs">Invoice #:</span><span className="ml-2 font-mono font-medium">{inv.invoice_number}</span></div>
+                                <div>
+                                    <span className="text-muted-foreground text-xs">Status:</span>
+                                    <span className={`ml-2 text-xs font-semibold px-2 py-0.5 rounded-full ${statusBadge(inv.status)}`}>{inv.status}</span>
+                                </div>
+                            </div>
+
+                            {/* Items */}
+                            <div>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Items</p>
+                                <div className="border rounded-lg overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b bg-muted/50">
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">#</th>
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Item</th>
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Batch</th>
+                                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Qty</th>
+                                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Unit Price</th>
+                                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {inv.items?.map((item: any, i: number) => (
+                                                <tr key={item.id} className="border-b last:border-0">
+                                                    <td className="px-3 py-2">{i + 1}</td>
+                                                    <td className="px-3 py-2 font-medium">{item.stock_batch?.product?.generic_name}</td>
+                                                    <td className="px-3 py-2 font-mono text-xs">{item.stock_batch?.batch_number || '—'}</td>
+                                                    <td className="px-3 py-2 text-right">{item.quantity}</td>
+                                                    <td className="px-3 py-2 text-right">Rs. {Number(item.unit_price).toLocaleString()}</td>
+                                                    <td className="px-3 py-2 text-right font-semibold">Rs. {(item.quantity * Number(item.unit_price)).toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Totals */}
+                                <div className="mt-2 space-y-1 px-3 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground text-xs">Sub Total</span>
+                                        <span>Rs. {Number(inv.sub_total).toLocaleString()}</span>
+                                    </div>
+                                    {Number(inv.discount) > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground text-xs">Discount</span>
+                                            <span className="text-red-600">- Rs. {Number(inv.discount).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {vat > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground text-xs">VAT</span>
+                                            <span className="text-blue-600">+ Rs. {vat.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between font-semibold border-t pt-1">
+                                        <span className="text-muted-foreground text-xs">Grand Total</span>
+                                        <span>Rs. {Number(inv.grand_total).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Payment History */}
+                            <div>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Payment History</p>
+                                <div className="border rounded-lg overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b bg-muted/50">
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Date</th>
+                                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Amount</th>
+                                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Note</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(!inv.receivables || inv.receivables.length === 0) ? (
+                                                <tr><td colSpan={3} className="text-center py-4 text-muted-foreground text-xs">No payments recorded.</td></tr>
+                                            ) : inv.receivables.map((r: any) => (
+                                                <tr key={r.id} className="border-b last:border-0">
+                                                    <td className="px-3 py-2">{r.dateTime}</td>
+                                                    <td className="px-3 py-2 text-right font-medium text-green-600">Rs. {Number(r.amount).toLocaleString()}</td>
+                                                    <td className="px-3 py-2 text-muted-foreground">{r.note ?? '—'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="flex justify-between items-center mt-2 px-3 text-sm pt-2 border-t">
+                                    <span className="text-muted-foreground text-xs">Total Collected</span>
+                                    <span className="font-semibold text-green-600">Rs. {collected.toLocaleString()}</span>
+                                </div>
+                                {outstanding > 0 && (
+                                    <div className="flex justify-between items-center px-3 text-sm">
+                                        <span className="text-muted-foreground text-xs">Outstanding</span>
+                                        <span className="font-semibold text-destructive">Rs. {outstanding.toLocaleString()}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
             </Modal>
         </div>
     );

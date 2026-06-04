@@ -16,8 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('grn_id');      
             $table->unsignedBigInteger('product_id'); 
             $table->integer('quantity');
-            $table->decimal('unit_price', 15, 2); 
-            $table->decimal('selling_price', 15, 2);   
+            $table->decimal('unit_price', 15, 2);   
             $table->string('batch_number')->nullable(); 
             $table->date('expiry_date')->nullable();    
             $table->date('mfd_date')->nullable();       

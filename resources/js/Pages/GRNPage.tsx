@@ -620,7 +620,6 @@ interface GrnItem {
     name: string;
     qty: number;
     unitPrice: number;
-    sellingPrice: number;
     batchNumber: string;
     expiryDate: string;
     mfdDate: string;
@@ -814,8 +813,7 @@ function GRNPage() {
                 name: p.generic_name,
                 qty: 1,
                 unitPrice: 0,
-                sellingPrice: 0,
-                batchNumber: generateBatchNumber(), // ✅ auto generate
+                batchNumber: generateBatchNumber(),
                 expiryDate: '',
                 mfdDate: '',
             }];
@@ -909,11 +907,11 @@ function GRNPage() {
                 payment_method_id: paymentMethodId ? Number(paymentMethodId) : null,
                 is_vat: selectedSupplierIsVat ? 1 : 0,
                 vat_amount: vatAmount,
+                vat_percentage: selectedSupplierIsVat ? vatRate : 0,
                 items: items.map((i) => ({
                     product_id: i.productId,
                     quantity: i.qty,
                     unit_price: i.unitPrice,
-                    selling_price: i.sellingPrice,
                     batch_number: i.batchNumber || null,
                     expiry_date: i.expiryDate || null,
                     mfd_date: i.mfdDate || null,
@@ -1030,7 +1028,6 @@ function GRNPage() {
                 <th>Expiry</th>
                 <th class="text-right">Qty</th>
                 <th class="text-right">Cost Price</th>
-                <th class="text-right">Selling Price</th>
                 <th class="text-right">Total</th>
             </tr>
         </thead>
@@ -1043,7 +1040,6 @@ function GRNPage() {
                 <td>${item.expiryDate || '—'}</td>
                 <td class="text-right">${item.qty}</td>
                 <td class="text-right">Rs. ${Number(item.unitPrice).toLocaleString()}</td>
-                <td class="text-right">Rs. ${Number(item.sellingPrice).toLocaleString()}</td>
                 <td class="text-right"><strong>Rs. ${(item.qty * item.unitPrice).toLocaleString()}</strong></td>
             </tr>
             `).join('')}
@@ -1207,7 +1203,6 @@ function GRNPage() {
                                 <th className="text-left font-medium text-muted-foreground px-4 py-3">Product</th>
                                 <th className="text-center font-medium text-muted-foreground px-3 py-3 w-20">Qty</th>
                                 <th className="text-center font-medium text-muted-foreground px-3 py-3 w-36">Cost Price</th>
-                                <th className="text-center font-medium text-muted-foreground px-3 py-3 w-36">Sell Price</th>
                                 <th className="text-center font-medium text-muted-foreground px-3 py-3 w-32">Batch No.</th>
                                 <th className="text-center font-medium text-muted-foreground px-3 py-3 w-36">Expiry Date</th>
                                 <th className="text-right font-medium text-muted-foreground px-4 py-3 w-32">Total</th>
@@ -1217,7 +1212,7 @@ function GRNPage() {
                         <tbody>
                             {items.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} className="text-center py-16 text-muted-foreground">
+                                    <td colSpan={8} className="text-center py-16 text-muted-foreground">
                                         <Package className="h-10 w-10 mx-auto mb-3 opacity-20" />
                                         <p className="text-sm font-medium">No products added yet</p>
                                         <p className="text-xs mt-1 opacity-70">Scan a barcode, search, or register a new product</p>
@@ -1235,12 +1230,6 @@ function GRNPage() {
                                     <td className="px-3 py-2.5">
                                         <Input type="number" value={item.unitPrice || ''}
                                             onChange={(e) => updateItem(item.productId, 'unitPrice', Number(e.target.value))}
-                                            className={`w-24 h-8 text-right mx-auto ${spinnerOff}`}
-                                            placeholder="0.00" />
-                                    </td>
-                                    <td className="px-3 py-2.5">
-                                        <Input type="number" value={item.sellingPrice || ''}
-                                            onChange={(e) => updateItem(item.productId, 'sellingPrice', Number(e.target.value))}
                                             className={`w-24 h-8 text-right mx-auto ${spinnerOff}`}
                                             placeholder="0.00" />
                                     </td>

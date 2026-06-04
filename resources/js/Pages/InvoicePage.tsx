@@ -326,6 +326,7 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import SearchBar from '@/components/shared/SearchBar';
 import { ShoppingCart, Plus, Minus, Trash2, Printer, Barcode, Save } from 'lucide-react';
@@ -340,7 +341,7 @@ interface StockItem {
     barcode_value:    string;
     brand:            string | null;
     category:         string | null;
-    selling_price:    number;
+    purchase_price:   number;
     current_quantity: number;
     expiry_date:      string | null;
     batch_number:     string | null;
@@ -369,7 +370,7 @@ function InvoicePage() {
 
     const [invoiceNum,     setInvoiceNum]     = useState('INV-0001');
     const [invoiceDate,    setInvoiceDate]    = useState(format(new Date(), 'yyyy-MM-dd'));
-    const [selectedCustomer, setSelectedCustomer] = useState<string>(String(WALK_IN_ID));
+    const [selectedCustomer, setSelectedCustomer] = useState<string>('');
     const [paymentMethod,  setPaymentMethod]  = useState<number>(0);
     const [paymentMethods, setPaymentMethods] = useState<{ id: number; name: string }[]>([]);
     const [paidAmount,     setPaidAmount]     = useState('');
@@ -381,6 +382,14 @@ function InvoicePage() {
     const [stockItems,     setStockItems]     = useState<StockItem[]>([]);
     const [saving,         setSaving]         = useState(false);
     const [vatRate,        setVatRate]        = useState(0);
+
+    // Unit price modal state
+    const [priceModalOpen,  setPriceModalOpen]  = useState(false);
+    const [pendingItem,     setPendingItem]     = useState<StockItem | null>(null);
+    const [unitPriceInput,  setUnitPriceInput]  = useState('');
+    const [qtyInput,        setQtyInput]        = useState('1');
+    const priceInputRef = useRef<HTMLInputElement>(null);
+
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Calculated totals
@@ -415,9 +424,8 @@ function InvoicePage() {
             setCustomers(res.data.customers);
             setStockItems(res.data.stock);
             if (res.data.next_number) setInvoiceNum(res.data.next_number);
-            if (Array.isArray(res.data.payment_methods) && res.data.payment_methods.length > 0) {
+            if (Array.isArray(res.data.payment_methods)) {
                 setPaymentMethods(res.data.payment_methods);
-                setPaymentMethod((prev) => prev === 0 ? res.data.payment_methods[0].id : prev);
             }
         } catch (e: any) {
             console.log('Form data error:', e.response?.data);
@@ -436,28 +444,62 @@ function InvoicePage() {
         s.brand?.toLowerCase().includes(productSearch.toLowerCase())
     );
 
-    // Add to cart
-    const addToCart = (s: StockItem) => {
+    // Open price-setting modal before adding to cart
+    const openPriceModal = (s: StockItem) => {
+        if (s.current_quantity === 0) return;
+        setPendingItem(s);
+        setUnitPriceInput('');
+        setQtyInput('1');
+        setPriceModalOpen(true);
+        setTimeout(() => priceInputRef.current?.focus(), 50);
+    };
+
+    // Add to cart with an explicitly supplied unit price
+    const addToCart = (s: StockItem, unitPrice: number, qty: number) => {
         setCart((prev) => {
             const existing = prev.find((c) => c.stock_batch_id === s.stock_batch_id);
             if (existing) {
-                if (existing.qty >= s.current_quantity) {
+                const newQty = existing.qty + qty;
+                if (newQty > s.current_quantity) {
                     toast.error(`Only ${s.current_quantity} in stock!`);
                     return prev;
                 }
                 return prev.map((c) => c.stock_batch_id === s.stock_batch_id
-                    ? { ...c, qty: c.qty + 1 } : c);
+                    ? { ...c, qty: newQty } : c);
             }
             return [...prev, {
                 stock_batch_id: s.stock_batch_id,
                 product_id:     s.product_id,
                 name:           s.generic_name,
                 brand:          s.brand,
-                qty:            1,
-                price:          s.selling_price,
+                qty,
+                price:          unitPrice,
                 stock:          s.current_quantity,
             }];
         });
+    };
+
+    const confirmPriceAndAdd = () => {
+        const price = Number(unitPriceInput);
+        const qty   = parseInt(qtyInput, 10);
+        if (!pendingItem) return;
+        if (!unitPriceInput || isNaN(price) || price <= 0) {
+            toast.error('Please enter a valid unit selling price.');
+            return;
+        }
+        if (!qtyInput || isNaN(qty) || qty <= 0) {
+            toast.error('Please enter a valid quantity.');
+            return;
+        }
+        if (qty > pendingItem.current_quantity) {
+            toast.error(`Only ${pendingItem.current_quantity} in stock!`);
+            return;
+        }
+        addToCart(pendingItem, price, qty);
+        setPriceModalOpen(false);
+        setPendingItem(null);
+        setUnitPriceInput('');
+        setQtyInput('1');
     };
 
     const updateQty = (stock_batch_id: number, delta: number) => {
@@ -482,12 +524,12 @@ function InvoicePage() {
         setCart((prev) => prev.filter((c) => c.stock_batch_id !== stock_batch_id));
     };
 
-    // Handle barcode scan
+    // Handle barcode scan — open price modal instead of direct add
     const handleBarcode = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && barcodeInput.trim()) {
             const found = stockItems.find((s) => s.barcode_value === barcodeInput.trim());
             if (found) {
-                addToCart(found);
+                openPriceModal(found);
             } else {
                 toast.error('Product not found for this barcode.');
             }
@@ -511,6 +553,7 @@ function InvoicePage() {
                 invoice_date:   invoiceDate,
                 sub_total:      subTotal,
                 discount:       Number(discount || 0),
+                vat_percentage: vatRate,
                 grand_total:    grandTotal,
                 paid_amount:    Number(paidAmount || 0),
                 payment_method: paymentMethod,
@@ -529,10 +572,10 @@ function InvoicePage() {
 
             // Reset
             setCart([]);
-            setSelectedCustomer(String(WALK_IN_ID));
+            setSelectedCustomer('');
             setDiscount('');
             setPaidAmount('');
-            setPaymentMethod(paymentMethods[0]?.id ?? 0);
+            setPaymentMethod(0);
             await fetchNextNumber();
             await fetchFormData();
 
@@ -545,6 +588,7 @@ function InvoicePage() {
     };
 
     return (
+        <>
         <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-8rem)] animate-fade-in">
 
             {/* Left: Product Selection */}
@@ -570,7 +614,7 @@ function InvoicePage() {
                 <div className="flex-1 overflow-y-auto scrollbar-thin">
                     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2">
                         {filteredStock.map((s) => (
-                            <button key={s.stock_batch_id} onClick={() => addToCart(s)}
+                            <button key={s.stock_batch_id} onClick={() => openPriceModal(s)}
                                 disabled={s.current_quantity === 0}
                                 className="bg-card border border-border rounded-lg p-3 text-left hover:border-primary hover:shadow-md transition-all group disabled:opacity-40 disabled:cursor-not-allowed">
                                 <p className="text-xs font-semibold truncate group-hover:text-primary">
@@ -580,10 +624,7 @@ function InvoicePage() {
                                 {s.batch_number && (
                                     <p className="text-[10px] text-muted-foreground font-mono">{s.batch_number}</p>
                                 )}
-                                <div className="flex justify-between items-center mt-2">
-                                    <span className="text-sm font-bold text-primary">
-                                        Rs. {Number(s.selling_price).toLocaleString()}
-                                    </span>
+                                <div className="flex justify-end items-center mt-2">
                                     <span className={`text-[10px] font-medium ${s.current_quantity <= 5 ? 'text-destructive' : 'text-muted-foreground'}`}>
                                         Stk: {s.current_quantity}
                                     </span>
@@ -613,7 +654,7 @@ function InvoicePage() {
                     </div>
                     <Combobox options={customerOptions} value={selectedCustomer}
                         onValueChange={setSelectedCustomer}
-                        placeholder="Walk-in Customer"
+                        placeholder="Select customer..."
                         searchPlaceholder="Search customers..."
                         className="mt-3 h-9 text-sm" />
                 </div>
@@ -770,6 +811,62 @@ function InvoicePage() {
                 </div>
             </div>
         </div>
+
+        {/* Unit Selling Price Modal */}
+        <Dialog open={priceModalOpen} onOpenChange={(open) => { if (!open) { setPriceModalOpen(false); setPendingItem(null); setUnitPriceInput(''); } }}>
+            <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Set Unit Selling Price</DialogTitle>
+                </DialogHeader>
+                {pendingItem && (
+                    <div className="space-y-4 py-2">
+                        <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                            <p className="text-sm font-semibold">{pendingItem.generic_name}</p>
+                            {pendingItem.brand && <p className="text-xs text-muted-foreground">{pendingItem.brand}</p>}
+                            {pendingItem.batch_number && (
+                                <p className="text-xs text-muted-foreground font-mono">{pendingItem.batch_number}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground pt-1">In stock: {pendingItem.current_quantity}</p>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Quantity</label>
+                            <Input
+                                type="number"
+                                placeholder="1"
+                                value={qtyInput}
+                                onChange={(e) => setQtyInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && priceInputRef.current?.focus()}
+                                className="text-right text-base font-semibold"
+                                min={1}
+                                max={pendingItem.current_quantity}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Unit Selling Price (Rs.)</label>
+                            <Input
+                                ref={priceInputRef}
+                                type="number"
+                                placeholder="Enter selling price..."
+                                value={unitPriceInput}
+                                onChange={(e) => setUnitPriceInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && confirmPriceAndAdd()}
+                                className="text-right text-base font-semibold"
+                                min={0}
+                            />
+                        </div>
+                    </div>
+                )}
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => { setPriceModalOpen(false); setPendingItem(null); setUnitPriceInput(''); }}>
+                        Cancel
+                    </Button>
+                    <Button onClick={confirmPriceAndAdd} className="gap-2">
+                        <ShoppingCart className="h-4 w-4" /> Add to Invoice
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }
 

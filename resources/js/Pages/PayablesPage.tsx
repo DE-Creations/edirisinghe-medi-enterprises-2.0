@@ -701,10 +701,7 @@ interface ExpenseItem {
     description:    string;
     category:       string;
     amount:         number;
-    paid:           number;
-    outstanding:    number;
     notes:          string | null;
-    status:         string;
 }
 
 interface PaymentRecord {
@@ -714,17 +711,6 @@ interface PaymentRecord {
     notes:  string | null;
     user?:  { name: string };
 }
-
-const expenseCategoryOptions = [
-    { value: 'Rent',        label: 'Rent' },
-    { value: 'Electricity', label: 'Electricity' },
-    { value: 'Water',       label: 'Water' },
-    { value: 'Salary',      label: 'Salary' },
-    { value: 'Transport',   label: 'Transport' },
-    { value: 'Maintenance', label: 'Maintenance' },
-    { value: 'Stationery',  label: 'Stationery' },
-    { value: 'Other',       label: 'Other' },
-];
 
 function PayablesPage() {
     const { user } = useAuth();
@@ -749,13 +735,16 @@ function PayablesPage() {
     const [historyTotal,   setHistoryTotal]   = useState(0);
 
     // Add expense modal
-    const [expOpen,     setExpOpen]     = useState(false);
-    const [expDate,     setExpDate]     = useState(format(new Date(), 'yyyy-MM-dd'));
-    const [expDesc,     setExpDesc]     = useState('');
-    const [expCategory, setExpCategory] = useState('');
-    const [expAmount,   setExpAmount]   = useState('');
-    const [expPaid,     setExpPaid]     = useState('');
-    const [expNotes,    setExpNotes]    = useState('');
+    const [expOpen,          setExpOpen]          = useState(false);
+    const [expDate,          setExpDate]          = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [expDesc,          setExpDesc]          = useState('');
+    const [expCategory,      setExpCategory]      = useState('');
+    const [expAmount,        setExpAmount]        = useState('');
+    const [expNotes,         setExpNotes]         = useState('');
+    const [expenseCategories, setExpenseCategories] = useState<{ value: string; label: string }[]>([]);
+    const [nextExpNumber,    setNextExpNumber]    = useState('Auto-generated');
+    const [newCatOpen,       setNewCatOpen]       = useState(false);
+    const [newCatName,       setNewCatName]       = useState('');
     const [deleteExpId, setDeleteExpId] = useState<number | null>(null);
 
     // GRN detail modal
@@ -765,7 +754,18 @@ function PayablesPage() {
     useEffect(() => {
         fetchGrns();
         fetchExpenses();
+        axios.get('/expenses-category/all').then(r =>
+            setExpenseCategories(r.data.map((c: any) => ({ value: String(c.id), label: c.name })))
+        ).catch(() => {});
     }, []);
+
+    useEffect(() => {
+        if (expOpen) {
+            axios.get('/payables/expense/next-number')
+                .then(r => setNextExpNumber(r.data.number))
+                .catch(() => setNextExpNumber('Auto-generated'));
+        }
+    }, [expOpen]);
 
     const fetchGrns = async () => {
         try {
@@ -785,7 +785,7 @@ function PayablesPage() {
     const totalGRNPayable     = grns.reduce((s, g) => s + Number(g.total_amount), 0);
     const totalGRNOutstanding = grns.reduce((s, g) => s + Number(g.outstanding), 0);
     const totalExpense        = expenses.reduce((s, e) => s + Number(e.amount), 0);
-    const totalOutstanding    = totalGRNOutstanding + expenses.reduce((s, e) => s + Number(e.outstanding), 0);
+    const totalOutstanding    = totalGRNOutstanding;
 
     // Filtered
     const filteredGRNs = grns.filter((g) => {
@@ -798,13 +798,9 @@ function PayablesPage() {
     });
 
     const filteredExpenses = expenses.filter((e) => {
-        const matchSearch = e.expense_number.toLowerCase().includes(search.toLowerCase()) ||
+        return e.expense_number.toLowerCase().includes(search.toLowerCase()) ||
             e.description.toLowerCase().includes(search.toLowerCase()) ||
             e.category.toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === 'all' ||
-            (statusFilter === 'outstanding' && e.outstanding > 0) ||
-            (statusFilter === 'paid' && e.outstanding <= 0);
-        return matchSearch && matchStatus;
     });
 
     // Open payment modal
@@ -873,9 +869,8 @@ function PayablesPage() {
             await axios.post('/payables/expense/store', {
                 date:        expDate,
                 description: expDesc,
-                category:    expCategory,
+                category_id: Number(expCategory),
                 amount:      Number(expAmount),
-                paid_amount: Number(expPaid || 0),
                 notes:       expNotes || null,
                 user_id:     user?.id,
             });
@@ -885,7 +880,6 @@ function PayablesPage() {
             setExpDesc('');
             setExpCategory('');
             setExpAmount('');
-            setExpPaid('');
             setExpNotes('');
             fetchExpenses();
         } catch (error: any) {
@@ -907,6 +901,21 @@ function PayablesPage() {
         }
     };
 
+    // Add expense category
+    const handleAddCategory = async () => {
+        if (!newCatName.trim()) return;
+        try {
+            const r = await axios.post('/expenses-category/store', { name: newCatName.trim() });
+            const created = r.data;
+            setExpenseCategories(prev => [...prev, { value: String(created.id), label: created.name }]);
+            setExpCategory(String(created.id));
+            setNewCatName('');
+            setNewCatOpen(false);
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Failed to add category.');
+        }
+    };
+
     const statusBadge = (status: string) => {
         if (status === 'paid') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
         if (status === 'partial') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
@@ -916,7 +925,7 @@ function PayablesPage() {
     return (
         <div className="space-y-5 animate-fade-in">
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div className="bg-card rounded-xl border border-border p-4">
                     <p className="text-xs text-muted-foreground mb-1">Total GRN Payable</p>
                     <p className="text-xl font-bold text-primary">Rs. {totalGRNPayable.toLocaleString()}</p>
@@ -928,10 +937,6 @@ function PayablesPage() {
                 <div className="bg-card rounded-xl border border-border p-4">
                     <p className="text-xs text-muted-foreground mb-1">GRN Outstanding</p>
                     <p className="text-xl font-bold text-destructive">Rs. {totalGRNOutstanding.toLocaleString()}</p>
-                </div>
-                <div className="bg-card rounded-xl border border-border p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Total Outstanding</p>
-                    <p className="text-xl font-bold text-destructive">Rs. {totalOutstanding.toLocaleString()}</p>
                 </div>
             </div>
 
@@ -1038,15 +1043,12 @@ function PayablesPage() {
                                     <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Description</th>
                                     <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Category</th>
                                     <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Amount</th>
-                                    <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Paid</th>
-                                    <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Outstanding</th>
-                                    <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
                                     <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredExpenses.length === 0 ? (
-                                    <tr><td colSpan={9} className="text-center py-10 text-sm text-muted-foreground">No expenses found.</td></tr>
+                                    <tr><td colSpan={6} className="text-center py-10 text-sm text-muted-foreground">No expenses found.</td></tr>
                                 ) : filteredExpenses.map((e) => (
                                     <tr key={e.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                                         <td className="px-4 py-3 text-sm font-medium text-primary font-mono">{e.expense_number}</td>
@@ -1056,28 +1058,8 @@ function PayablesPage() {
                                             <span className="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground">{e.category}</span>
                                         </td>
                                         <td className="px-4 py-3 text-sm font-semibold text-right">Rs. {Number(e.amount).toLocaleString()}</td>
-                                        <td className="px-4 py-3 text-sm text-right text-green-600">Rs. {Number(e.paid).toLocaleString()}</td>
-                                        <td className="px-4 py-3 text-sm text-right font-semibold text-destructive">
-                                            {e.outstanding > 0 ? `Rs. ${Number(e.outstanding).toLocaleString()}` : '—'}
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${statusBadge(e.status)}`}>
-                                                {e.status === 'paid' ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                                                {e.status}
-                                            </span>
-                                        </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-1">
-                                                <button onClick={() => openHistory('expense', e.id, e.expense_number, e.amount)}
-                                                    className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title="History">
-                                                    <Eye className="h-3.5 w-3.5" />
-                                                </button>
-                                                {e.outstanding > 0 && (
-                                                    <button onClick={() => openPay(e.id, e.expense_number, 'expense', e.outstanding)}
-                                                        className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary" title="Record payment">
-                                                        <Plus className="h-3.5 w-3.5" />
-                                                    </button>
-                                                )}
                                                 <button onClick={() => setDeleteExpId(e.id)}
                                                     className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive" title="Delete">
                                                     <Trash2 className="h-3.5 w-3.5" />
@@ -1125,18 +1107,38 @@ function PayablesPage() {
             </Modal>
 
             {/* Add Expense Modal */}
-            <Modal open={expOpen} onClose={() => setExpOpen(false)} title="Add Expense">
+            <Modal open={expOpen} onClose={() => { setExpOpen(false); setNewCatOpen(false); setNewCatName(''); }} title="Add Expense">
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Expense No.</label>
+                            <Input value={nextExpNumber} disabled className="bg-muted text-muted-foreground" />
+                        </div>
                         <div>
                             <label className="text-xs font-medium text-muted-foreground mb-1 block">Date</label>
                             <DatePicker value={expDate} onChange={setExpDate} className="w-full" />
                         </div>
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
-                            <Combobox options={expenseCategoryOptions} value={expCategory}
-                                onValueChange={setExpCategory} placeholder="Select category" searchPlaceholder="Search..." />
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
+                        <div className="flex gap-2 items-center">
+                            <div className="flex-1">
+                                <Combobox options={expenseCategories} value={expCategory}
+                                    onValueChange={setExpCategory} placeholder="Select category" searchPlaceholder="Search..." />
+                            </div>
+                            <Button size="icon" variant="outline" type="button" onClick={() => setNewCatOpen(v => !v)} title="Add new category">
+                                <Plus className="h-4 w-4" />
+                            </Button>
                         </div>
+                        {newCatOpen && (
+                            <div className="flex gap-2 items-center mt-2 p-2 border rounded-md bg-muted/40">
+                                <Input placeholder="New category name" value={newCatName}
+                                    onChange={e => setNewCatName(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleAddCategory()} className="h-8" />
+                                <Button size="sm" onClick={handleAddCategory}>Add</Button>
+                                <Button size="sm" variant="ghost" onClick={() => { setNewCatOpen(false); setNewCatName(''); }}>Cancel</Button>
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
@@ -1148,13 +1150,9 @@ function PayablesPage() {
                             <Input type="number" value={expAmount} onChange={(e) => setExpAmount(e.target.value)} />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Paid Amount (Rs.)</label>
-                            <Input type="number" value={expPaid} onChange={(e) => setExpPaid(e.target.value)} placeholder="0.00" />
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Notes (optional)</label>
+                            <Input value={expNotes} onChange={(e) => setExpNotes(e.target.value)} />
                         </div>
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Notes (optional)</label>
-                        <Input value={expNotes} onChange={(e) => setExpNotes(e.target.value)} />
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
                         <Button variant="outline" onClick={() => setExpOpen(false)}>Cancel</Button>
@@ -1254,9 +1252,27 @@ function PayablesPage() {
                                         </tbody>
                                     </table>
                                 </div>
-                                <div className="flex justify-between items-center mt-2 px-3 text-sm font-semibold">
-                                    <span className="text-muted-foreground text-xs">Grand Total</span>
-                                    <span>Rs. {Number(g.total_amount).toLocaleString()}</span>
+                                <div className="mt-2 space-y-1 px-3 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground text-xs">Sub Total</span>
+                                        <span>Rs. {Number(g.sub_total).toLocaleString()}</span>
+                                    </div>
+                                    {Number(g.discount) > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground text-xs">Discount</span>
+                                            <span className="text-red-600">- Rs. {Number(g.discount).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {Number(g.vat_amount) > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground text-xs">VAT</span>
+                                            <span className="text-blue-600">+ Rs. {Number(g.vat_amount).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between font-semibold border-t pt-1">
+                                        <span className="text-muted-foreground text-xs">Grand Total</span>
+                                        <span>Rs. {Number(g.total_amount).toLocaleString()}</span>
+                                    </div>
                                 </div>
                             </div>
 

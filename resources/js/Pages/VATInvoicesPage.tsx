@@ -215,7 +215,7 @@ export default function VATInvoicesPage() {
                       <SelectContent>
                         {invoices.map(inv => (
                           <SelectItem key={inv.id} value={inv.id.toString()}>
-                            {inv.invoice_number} &nbsp;|&nbsp; {inv.invoice_date} &nbsp;|&nbsp; LKR {Number(inv.grand_total).toFixed(2)}
+                            {inv.invoice_number} &nbsp;|&nbsp; {inv.invoice_date} &nbsp;|&nbsp; LKR {Number(inv.grand_total).toLocaleString()}
                             {inv.is_vat_invoice_issued ? '  ✓ VAT issued' : ''}
                           </SelectItem>
                         ))}
@@ -287,8 +287,8 @@ export default function VATInvoicesPage() {
                               <td className="p-2">{idx + 1}</td>
                               <td className="p-2">{item.stock_batch?.product?.generic_name ?? 'N/A'}</td>
                               <td className="p-2 text-right">{item.quantity}</td>
-                              <td className="p-2 text-right">{Number(item.unit_price).toFixed(2)}</td>
-                              <td className="p-2 text-right">{(item.quantity * item.unit_price).toFixed(2)}</td>
+                              <td className="p-2 text-right">{Number(item.unit_price).toLocaleString()}</td>
+                              <td className="p-2 text-right">{(item.quantity * item.unit_price).toLocaleString()}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -304,21 +304,21 @@ export default function VATInvoicesPage() {
                     <div className="max-w-sm ml-auto space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Sub Total</span>
-                        <span>LKR {Number(inv?.sub_total).toFixed(2)}</span>
+                        <span>LKR {Number(inv?.sub_total).toLocaleString()}</span>
                       </div>
                       {(inv?.discount ?? 0) > 0 && (
                         <div className="flex justify-between text-red-600">
                           <span>Discount</span>
-                          <span>- LKR {Number(inv?.discount).toFixed(2)}</span>
+                          <span>- LKR {Number(inv?.discount).toLocaleString()}</span>
                         </div>
                       )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">VAT ({invoiceData.vat_percentage}%)</span>
-                        <span>LKR {Number(invoiceData.vat_amount).toFixed(2)}</span>
+                        <span>LKR {Number(invoiceData.vat_amount).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between font-bold border-t pt-2 text-base">
                         <span>Total (incl. VAT)</span>
-                        <span>LKR {Number(invoiceData.total_amount).toFixed(2)}</span>
+                        <span>LKR {Number(invoiceData.total_amount).toLocaleString()}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -370,7 +370,7 @@ export default function VATInvoicesPage() {
                           <td className="p-2 font-mono text-xs">{h.vat_invoice_number}</td>
                           <td className="p-2">{h.invoice?.invoice_number}</td>
                           <td className="p-2">{h.customer?.name}</td>
-                          <td className="p-2 text-right">{Number(h.total_amount).toFixed(2)}</td>
+                          <td className="p-2 text-right">{Number(h.total_amount).toLocaleString()}</td>
                           <td className="p-2 text-center">
                             <form method="POST" action="/vat-invoice/reprint" target="_blank" className="inline">
                               <input type="hidden" name="_token" value={getCsrfToken()} />

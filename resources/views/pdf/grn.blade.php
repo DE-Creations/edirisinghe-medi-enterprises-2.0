@@ -7,7 +7,7 @@
     <style>
         @page {
             margin: 15mm;
-            size: A4;
+            size: 9.5in 11in portrait;
         }
 
         * {
@@ -348,7 +348,7 @@
                     @endif
                     @if (($grn->is_vat ?? false) && ($grn->vat_amount ?? 0) > 0)
                         <tr>
-                            <td class="lbl">VAT</td>
+                            <td class="lbl">VAT ({{ $grn->vat_percentage ?? 0 }}%)</td>
                             <td class="amt">{{ number_format($grn->vat_amount, 2) }}</td>
                         </tr>
                     @endif

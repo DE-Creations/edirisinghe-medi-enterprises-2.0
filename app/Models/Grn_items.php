@@ -15,7 +15,6 @@ class Grn_items extends Model
         'product_id',
         'quantity',
         'unit_price',
-        'selling_price',
         'batch_number',
         'expiry_date',
         'mfd_date'

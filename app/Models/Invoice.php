@@ -19,6 +19,7 @@ class Invoice extends Model
         'invoice_date',
         'sub_total',
         'discount',
+        'vat_percentage',
         'grand_total',
         'paid_amount',
         'payment_method',

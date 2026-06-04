@@ -14,7 +14,6 @@ class StockBatches extends Model
         'mfd',
         'expiry_date',
         'purchase_price',
-        'selling_price',
         'initial_quantity',
         'current_quantity',
         'product_id',

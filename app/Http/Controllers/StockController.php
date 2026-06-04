@@ -23,7 +23,6 @@ class StockController extends Controller
                     'mfd'              => $batch->mfd,
                     'expiry_date'      => $batch->expiry_date,
                     'purchase_price'   => $batch->purchase_price,
-                    'selling_price'    => $batch->selling_price,
                     'initial_quantity' => $batch->initial_quantity,
                     'current_quantity' => $batch->current_quantity,
                     'grn_number'       => $batch->grn?->grn_number,
@@ -99,7 +98,6 @@ class StockController extends Controller
             'product_id'     => 'required|exists:products,id',
             'quantity'       => 'required|integer|min:1',
             'purchase_price' => 'required|numeric|min:0',
-            'selling_price'  => 'required|numeric|min:0',
             'batch_number'   => 'nullable|string',
             'expiry_date'    => 'nullable|date',
             'mfd'            => 'nullable|date',
@@ -108,13 +106,12 @@ class StockController extends Controller
 
         $batch = StockBatches::create([
             'product_id'       => $validated['product_id'],
-            'grn_id'           => null,         
+            'grn_id'           => null,
             'user_id'          => $validated['user_id'],
             'batch_number'     => $validated['batch_number'] ?? null,
             'mfd'              => $validated['mfd'] ?? null,
             'expiry_date'      => $validated['expiry_date'] ?? null,
             'purchase_price'   => $validated['purchase_price'],
-            'selling_price'    => $validated['selling_price'],
             'initial_quantity' => $validated['quantity'],
             'current_quantity' => $validated['quantity'],
         ]);    

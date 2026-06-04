@@ -18,8 +18,6 @@ return new class extends Migration
             $table->string('description');
             $table->unsignedBigInteger('category_id');
             $table->decimal('amount', 15, 2);
-            $table->decimal('paid_amount', 15, 2)->default(0);
-            $table->string('status')->default('unpaid'); // paid/partial/unpaid
             $table->text('notes')->nullable();
             $table->unsignedBigInteger('user_id');
             $table->softDeletes();    

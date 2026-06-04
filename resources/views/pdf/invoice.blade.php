@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>Invoice {{ $invoice->invoice_number }}</title>
     <style>
-        @page { margin: 15mm; size: A4; }
+        @page { margin: 15mm; size: 9.5in 11in portrait; }
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 10pt; color: #000; line-height: 1.4; margin: 0; padding: 0 0 30px 0; }
         .company-header { font-size: 10pt; font-weight: bold; margin: 0; text-transform: uppercase; }
@@ -107,6 +107,8 @@
     @php
         $totalPaid      = $invoice->receivables->sum('amount');
         $invoiceBalance = ($invoice->grand_total ?? 0) - $totalPaid;
+        $vatPct         = $invoice->vat_percentage ?? 0;
+        $vatAmount      = ($invoice->grand_total ?? 0) - ($invoice->sub_total ?? 0) + ($invoice->discount ?? 0);
     @endphp
     <table class="summary-table">
         <tr>
@@ -117,8 +119,8 @@
                     @if(($invoice->discount ?? 0) > 0)
                         <tr><td class="lbl">DISCOUNT</td><td class="amt">-{{ number_format($invoice->discount, 2) }}</td></tr>
                     @endif
-                    @if(($invoice->tax_amount ?? 0) > 0)
-                        <tr><td class="lbl">TAX</td><td class="amt">{{ number_format($invoice->tax_amount, 2) }}</td></tr>
+                    @if($vatAmount > 0)
+                        <tr><td class="lbl">VAT ({{ $vatPct }}%)</td><td class="amt">{{ number_format($vatAmount, 2) }}</td></tr>
                     @endif
                     <tr class="grand-total">
                         <td class="lbl" style="border-bottom: none;">TOTAL</td>
