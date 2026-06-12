@@ -1225,7 +1225,7 @@ function GRNPage() {
                                     <td className="px-3 py-2.5">
                                         <Input type="number" value={item.qty}
                                             onChange={(e) => updateItem(item.productId, 'qty', Number(e.target.value))}
-                                            className={`w-16 h-8 text-center mx-auto ${spinnerOff}`} />
+                                            className={`w-24 h-8 text-center mx-auto ${spinnerOff}`} />
                                     </td>
                                     <td className="px-3 py-2.5">
                                         <Input type="number" value={item.unitPrice || ''}
