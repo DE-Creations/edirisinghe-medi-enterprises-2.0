@@ -439,7 +439,7 @@ function InvoicePage() {
 
     // Filter products by search
     const filteredStock = stockItems.filter((s) =>
-        s.generic_name.toLowerCase().includes(productSearch.toLowerCase()) ||
+        s.generic_name?.toLowerCase().includes(productSearch.toLowerCase()) ||
         s.barcode_value?.includes(productSearch) ||
         s.brand?.toLowerCase().includes(productSearch.toLowerCase())
     );
@@ -687,7 +687,7 @@ function InvoicePage() {
                                     min={1}
                                     max={item.stock}
                                     onChange={(e) => setItemQty(item.stock_batch_id, parseInt(e.target.value, 10))}
-                                    className="w-10 h-6 text-center text-xs font-semibold bg-background border border-input rounded px-1
+                                    className="w-16 h-6 text-center text-xs font-semibold bg-background border border-input rounded px-1
                                         [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                                 <button onClick={() => updateQty(item.stock_batch_id, 1)}

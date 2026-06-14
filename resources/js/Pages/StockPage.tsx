@@ -705,7 +705,7 @@ const productOptions = products.map((p) => ({
   const filtered = stock.filter((s) => {
     const q = search.toLowerCase();
     return (
-      s.product?.generic_name.toLowerCase().includes(q) ||
+      s.product?.generic_name?.toLowerCase().includes(q) ||
       s.batch_number?.toLowerCase().includes(q) ||
       s.grn_number?.toLowerCase().includes(q) ||
       s.product?.brand?.toLowerCase().includes(q) ||
