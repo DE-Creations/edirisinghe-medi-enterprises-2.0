@@ -94,6 +94,9 @@ export default function VATInvoicesPage() {
     return () => clearTimeout(t);
   }, [historySearch]);
 
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [reprintingId, setReprintingId] = useState<number | null>(null);
+
   const getCsrfToken = (): string => {
     const meta = document.querySelector('meta[name="csrf-token"]');
     if (meta) return meta.getAttribute('content') || '';
@@ -101,38 +104,77 @@ export default function VATInvoicesPage() {
     return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
   };
 
-  const handlePrint = () => {
-    if (!invoiceData) return;
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/vat-invoice/generate';
-    form.target = '_blank';
+  const handlePrint = async () => {
+    if (!invoiceData || !selectedInvoiceId) return;
+    setIsPrinting(true);
+    try {
+      const response = await axios.post('/vat-invoice/generate',
+        { invoice_id: selectedInvoiceId },
+        {
+          responseType: 'blob',
+          headers: {
+            'X-CSRF-TOKEN': getCsrfToken(),
+            'Content-Type': 'application/json',
+          }
+        }
+      );
 
-    const csrfToken = getCsrfToken();
-    if (csrfToken) {
-      const csrfInput = document.createElement('input');
-      csrfInput.type = 'hidden';
-      csrfInput.name = '_token';
-      csrfInput.value = csrfToken;
-      form.appendChild(csrfInput);
+      // Create blob and open in new window for printing
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // Refresh after printing
+      setInvoiceData(null);
+      setSelectedInvoiceId('');
+      setTimeout(() => {
+        handleSearchInvoices();
+        fetchHistory();
+      }, 500);
+    } catch (error: any) {
+      console.error('Error generating VAT invoice:', error);
+      alert('Failed to generate VAT invoice: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setIsPrinting(false);
     }
+  };
 
-    const idInput = document.createElement('input');
-    idInput.type = 'hidden';
-    idInput.name = 'invoice_id';
-    idInput.value = selectedInvoiceId;
-    form.appendChild(idInput);
+  const handleReprint = async (id: number) => {
+    setReprintingId(id);
+    try {
+      const response = await axios.post('/vat-invoice/reprint',
+        { id },
+        {
+          responseType: 'blob',
+          headers: {
+            'X-CSRF-TOKEN': getCsrfToken(),
+            'Content-Type': 'application/json',
+          }
+        }
+      );
 
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-
-    setInvoiceData(null);
-    setSelectedInvoiceId('');
-    setTimeout(() => {
-      handleSearchInvoices();
-      fetchHistory();
-    }, 1000);
+      // Create blob and open in new window for printing
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Error reprinting VAT invoice:', error);
+      alert('Failed to reprint VAT invoice: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setReprintingId(null);
+    }
   };
 
   const years = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
@@ -329,8 +371,8 @@ export default function VATInvoicesPage() {
                         A VAT invoice has already been issued for this regular invoice.
                       </div>
                     ) : (
-                      <Button onClick={handlePrint} className="w-full" size="lg">
-                        <Printer className="w-5 h-5 mr-2" /> Print VAT Invoice
+                      <Button onClick={handlePrint} disabled={isPrinting} className="w-full" size="lg">
+                        <Printer className="w-5 h-5 mr-2" /> {isPrinting ? 'Generating...' : 'Print VAT Invoice'}
                       </Button>
                     )}
                   </CardFooter>
@@ -372,13 +414,15 @@ export default function VATInvoicesPage() {
                           <td className="p-2">{h.customer?.name}</td>
                           <td className="p-2 text-right">{Number(h.total_amount).toLocaleString()}</td>
                           <td className="p-2 text-center">
-                            <form method="POST" action="/vat-invoice/reprint" target="_blank" className="inline">
-                              <input type="hidden" name="_token" value={getCsrfToken()} />
-                              <input type="hidden" name="id" value={h.id} />
-                              <Button type="submit" variant="ghost" size="sm" title="Reprint">
-                                <Printer className="w-4 h-4" />
-                              </Button>
-                            </form>
+                            <Button
+                              onClick={() => handleReprint(h.id)}
+                              disabled={reprintingId === h.id}
+                              variant="ghost"
+                              size="sm"
+                              title="Reprint"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Button>
                           </td>
                         </tr>
                       ))}

@@ -25,9 +25,12 @@ class VatInvoiceController extends Controller
         $vatNickName = strtoupper($customerVat?->nick_name ?? substr($customer->name, 0, 2));
         $prefix      = date('y') . strtoupper(date('M')); // e.g. 26MAY
 
-        // Global sequence across all VAT invoices
-        $latestVat = VatInvoice::orderBy('id', 'desc')->first();
-        $nextNum   = 1;
+        // Sequence per company prefix (same date + customer nickname)
+        $latestVat = VatInvoice::where('vat_invoice_number', 'like', "{$prefix}_{$vatNickName}_%")
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $nextNum = 1;
         if ($latestVat && preg_match('/_(\d+)$/', $latestVat->vat_invoice_number, $matches)) {
             $nextNum = intval($matches[1]) + 1;
         }

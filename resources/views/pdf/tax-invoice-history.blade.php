@@ -215,6 +215,73 @@
         .no-border-bottom {
             border-bottom: none !important;
         }
+
+        /* Print Media Styles for Real Printer */
+        @media print {
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                background: white;
+            }
+
+            @page {
+                margin: 10mm;
+                size: A4 portrait;
+                orphans: 3;
+                widows: 3;
+            }
+
+            body {
+                margin: 0;
+                padding: 10mm;
+            }
+
+            table {
+                page-break-inside: avoid;
+            }
+
+            tr {
+                page-break-inside: avoid;
+            }
+
+            /* Prevent page breaks in important sections */
+            .title-container,
+            .info-header-table,
+            .party-info-table,
+            .items-table,
+            .totals-table,
+            .bottom-box {
+                page-break-inside: avoid;
+            }
+
+            /* Hide scrollbars and ensure no extra spacing */
+            html {
+                overflow: visible;
+            }
+
+            body {
+                overflow: visible;
+            }
+
+            /* Ensure consistent colors for printing */
+            * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                color-adjust: exact;
+            }
+
+            a {
+                text-decoration: none;
+            }
+        }
     </style>
 </head>
 
