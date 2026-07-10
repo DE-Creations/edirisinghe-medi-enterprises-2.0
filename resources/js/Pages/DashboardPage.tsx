@@ -356,7 +356,7 @@ function DashboardPage() {
             <div>
                 <h1 className="text-xl font-bold">Welcome back, {user?.name}</h1>
                 <p className="text-sm text-muted-foreground">
-                    Here's what's happening at your pharmacy this week.
+                    Here's what's happening at your store this week.
                 </p>
             </div>
 
