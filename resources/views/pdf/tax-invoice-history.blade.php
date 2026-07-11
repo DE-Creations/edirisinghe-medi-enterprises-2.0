@@ -354,8 +354,8 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 8%;">Reference</th>
-                <th style="width: 34%;">Description of Goods or Services</th>
+                <th style="width: 10%;">Reference</th>
+                <th style="width: 32%;">Description of Goods or Services</th>
                 <th style="width: 13%;">Quantity</th>
                 <th style="width: 15%;">Unit Price<br>(Rs.)</th>
                 <th style="width: 30%;">Amount<br>Excluding VAT<br>(Rs.)</th>
