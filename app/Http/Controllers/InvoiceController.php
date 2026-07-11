@@ -140,6 +140,7 @@ class InvoiceController extends Controller
         $validated = $request->validate([
             'customer_id'        => 'required|exists:customers,id',
             'user_id'            => 'required|exists:users,id',
+            'po_number'          => 'nullable|string|max:100',
             'invoice_date'       => 'required|date',
             'sub_total'          => 'required|numeric',
             'discount'           => 'required|numeric|min:0',
@@ -169,6 +170,7 @@ class InvoiceController extends Controller
             
             $invoice = Invoice::create([
                 'invoice_number' => $invNum,
+                'po_number'      => $validated['po_number'] ?? null,
                 'customer_id'    => $validated['customer_id'],
                 'user_id'        => $validated['user_id'],
                 'invoice_date'   => $validated['invoice_date'],

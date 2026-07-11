@@ -354,8 +354,8 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 8%;">Reference</th>
-                <th style="width: 34%;">Description of Goods or Services</th>
+                <th style="width: 10%;">Reference</th>
+                <th style="width: 32%;">Description of Goods or Services</th>
                 <th style="width: 13%;">Quantity</th>
                 <th style="width: 15%;">Unit Price<br>(Rs.)</th>
                 <th style="width: 30%;">Amount<br>Excluding VAT<br>(Rs.)</th>
@@ -400,15 +400,15 @@
     <table class="totals-table">
         <tr></tr>
             <td class="text-left" style="border-right: 1px solid #000; width: 70%;">Total Value of Supply</td>
-            <td class="totals-value" style="width: 20%;">{{ number_format($subtotal, 0) }}</td>
+            <td class="totals-value" style="width: 20%;">{{ number_format($subtotal, 2) }}</td>
         </tr>
         <tr>
             <td class="text-left" style="width: 70%;">Vat Amount (Total Value of Supply @ {{ $vatPercentage }}%)</td>
-            <td class="totals-value" style="width: 20%;">{{ number_format($vatAmount, 0) }}</td>
+            <td class="totals-value" style="width: 20%;">{{ number_format($vatAmount, 2) }}</td>
         </tr>
         <tr>
             <td class="text-left" style="width: 70%;">Total Amount including VAT</td>
-            <td class="totals-value bold" style="width: 20%;">{{ number_format($grandTotal, 0) }}</td>
+            <td class="totals-value bold" style="width: 20%;">{{ number_format($grandTotal, 2) }}</td>
         </tr>
     </table>
 

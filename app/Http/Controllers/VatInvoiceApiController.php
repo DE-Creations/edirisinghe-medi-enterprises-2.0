@@ -43,14 +43,14 @@ class VatInvoiceApiController extends Controller
             ->orderBy('from_date', 'desc')
             ->first();
         $vatPercentage = $vatSetting ? $vatSetting->vat_percentage : 18;
-        $vatAmount     = round(($invoice->sub_total * $vatPercentage) / 100, 2);
+        $vatAmount     = ($invoice->sub_total * $vatPercentage) / 100;
 
         return response()->json([
             'invoice'        => $invoice,
             'customer_vat'   => $customerVat,
             'vat_percentage' => $vatPercentage,
             'vat_amount'     => $vatAmount,
-            'total_amount'   => round($invoice->sub_total + $vatAmount, 2),
+            'total_amount'   => $invoice->sub_total + $vatAmount,
         ]);
     }
 
