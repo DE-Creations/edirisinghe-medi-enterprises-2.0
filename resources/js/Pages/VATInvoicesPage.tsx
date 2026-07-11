@@ -104,6 +104,19 @@ export default function VATInvoicesPage() {
     return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
   };
 
+  const readBlobError = async (error: any): Promise<string> => {
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text();
+        const json = JSON.parse(text);
+        return json.message || text;
+      } catch {
+        return error.message;
+      }
+    }
+    return error.response?.data?.message || error.message;
+  };
+
   const handlePrint = async () => {
     if (!invoiceData || !selectedInvoiceId) return;
     setIsPrinting(true);
@@ -119,16 +132,9 @@ export default function VATInvoicesPage() {
         }
       );
 
-      // Create blob and open in new window for printing
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      window.open(url, '_blank');
 
       // Refresh after printing
       setInvoiceData(null);
@@ -139,7 +145,8 @@ export default function VATInvoicesPage() {
       }, 500);
     } catch (error: any) {
       console.error('Error generating VAT invoice:', error);
-      alert('Failed to generate VAT invoice: ' + (error.response?.data?.message || error.message));
+      const msg = await readBlobError(error);
+      alert('Failed to generate VAT invoice: ' + msg);
     } finally {
       setIsPrinting(false);
     }
@@ -159,19 +166,13 @@ export default function VATInvoicesPage() {
         }
       );
 
-      // Create blob and open in new window for printing
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      window.open(url, '_blank');
     } catch (error: any) {
       console.error('Error reprinting VAT invoice:', error);
-      alert('Failed to reprint VAT invoice: ' + (error.response?.data?.message || error.message));
+      const msg = await readBlobError(error);
+      alert('Failed to reprint VAT invoice: ' + msg);
     } finally {
       setReprintingId(null);
     }

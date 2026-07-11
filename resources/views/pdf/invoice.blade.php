@@ -39,6 +39,7 @@
         .history-tbl th, .history-tbl td { padding: 7px 10px; border-bottom: 1px solid #ddd; font-size: 9pt; text-align: left; }
         .history-tbl th { font-weight: bold; text-transform: uppercase; font-size: 8.5pt; letter-spacing: 0.5px; border-top: 1px solid #000; border-bottom: 1px solid #000; }
         .history-tbl td.r, .history-tbl th.r { text-align: right; }
+        .signing-section { position: fixed; bottom: 45px; width: 100%; }
         .footer { position: fixed; bottom: 0px; width: 100%; border-top: 1px solid #000; padding-top: 10px; font-size: 8pt; }
         .footer-table { width: 100%; }
         .footer-table td { vertical-align: middle; }
@@ -58,6 +59,9 @@
     <table class="header-meta">
         <tr>
             <td style="text-align: left;">{{ $invoice->invoice_number }}</td>
+            @if($invoice->po_number)
+                <td style="text-align: center;">PO No: {{ $invoice->po_number }}</td>
+            @endif
             <td style="text-align: right;">Date: {{ $invoice->invoice_date ? \Carbon\Carbon::parse($invoice->invoice_date)->format('d/m/Y') : '—' }}</td>
         </tr>
     </table>
@@ -165,6 +169,25 @@
         </table>
     </div>
     @endif
+
+    <div class="signing-section">
+        <table style="width: 80%; margin: 0 auto; border-collapse: collapse;">
+            <tr>
+                <td style="width: 30%; text-align: center; border-bottom: 1px dotted #000; height: 30px; vertical-align: bottom;">&nbsp;</td>
+                <td style="width: 5%;">&nbsp;</td>
+                <td style="width: 30%; text-align: center; border-bottom: 1px dotted #000; height: 30px; vertical-align: bottom;">&nbsp;</td>
+                <td style="width: 5%;">&nbsp;</td>
+                <td style="width: 30%; text-align: center; border-bottom: 1px dotted #000; height: 30px; vertical-align: bottom;">&nbsp;</td>
+            </tr>
+            <tr>
+                <td style="text-align: center; font-size: 9pt; font-weight: bold; padding-top: 4px;">Prepared By</td>
+                <td>&nbsp;</td>
+                <td style="text-align: center; font-size: 9pt; font-weight: bold; padding-top: 4px;">Checked By</td>
+                <td>&nbsp;</td>
+                <td style="text-align: center; font-size: 9pt; font-weight: bold; padding-top: 4px;">Received By</td>
+            </tr>
+        </table>
+    </div>
 
     <div class="footer">
         <table class="footer-table">

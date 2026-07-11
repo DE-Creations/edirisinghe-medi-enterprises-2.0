@@ -13,80 +13,84 @@ class VatInvoiceController extends Controller
 {
     public function generatePdf(Request $request)
     {
-        $invoiceId = $request->input('invoice_id');
-        $invoice   = Invoice::with(['customer', 'items.stockBatch.product', 'paymentMethod'])->findOrFail($invoiceId);
+        try {
+            $invoiceId = $request->input('invoice_id');
+            $invoice   = Invoice::with(['customer', 'items.stockBatch.product', 'paymentMethod'])->findOrFail($invoiceId);
 
-        if ($invoice->is_vat_invoice_issued) {
-            abort(400, 'VAT Invoice already issued for this regular invoice.');
+            if ($invoice->is_vat_invoice_issued) {
+                return response()->json(['message' => 'VAT Invoice already issued for this regular invoice.'], 400);
+            }
+
+            $customer    = $invoice->customer;
+            $customerVat = DB::table('customers_vat_details')->where('customer_id', $customer->id)->first();
+            $vatNickName = strtoupper($customerVat?->nick_name ?? substr($customer->name, 0, 2));
+            $prefix      = date('y') . strtoupper(date('M'));
+
+            $latestVat = VatInvoice::where('vat_invoice_number', 'like', "{$prefix}_{$vatNickName}_%")
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $nextNum = 1;
+            if ($latestVat && preg_match('/_(\d+)$/', $latestVat->vat_invoice_number, $matches)) {
+                $nextNum = intval($matches[1]) + 1;
+            }
+
+            $vatInvoiceNumber = sprintf('%s_%s_%05d', $prefix, $vatNickName, $nextNum);
+
+            $vatSetting    = DB::table('vat_percentage')
+                ->where('from_date', '<=', $invoice->invoice_date)
+                ->orderBy('from_date', 'desc')
+                ->first();
+            $vatPercentage = $vatSetting ? $vatSetting->vat_percentage : 18;
+
+            $subTotal   = $invoice->sub_total;
+            $vatAmount   = ($subTotal * $vatPercentage) / 100;
+            $totalAmount = $subTotal + $vatAmount;
+
+            $vatInvoice = VatInvoice::create([
+                'invoice_id'         => $invoice->id,
+                'customer_id'        => $customer->id,
+                'vat_invoice_number' => $vatInvoiceNumber,
+                'vat_invoice_date'   => now()->toDateString(),
+                'sub_total'          => $subTotal,
+                'vat_percentage'     => $vatPercentage,
+                'vat_amount'         => $vatAmount,
+                'total_amount'       => $totalAmount,
+            ]);
+
+            $invoice->update(['is_vat_invoice_issued' => true]);
+
+            return Pdf::loadView('pdf.tax-invoice', $this->buildViewData(
+                $invoice, $vatInvoice, $customer, $customerVat,
+                $totalAmount, $vatPercentage, $vatAmount, $subTotal
+            ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoiceNumber . '.pdf');
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        $customer    = $invoice->customer;
-        $customerVat = DB::table('customers_vat_details')->where('customer_id', $customer->id)->first();
-        $vatNickName = strtoupper($customerVat?->nick_name ?? substr($customer->name, 0, 2));
-        $prefix      = date('y') . strtoupper(date('M')); // e.g. 26MAY
-
-        // Sequence per company prefix (same date + customer nickname)
-        $latestVat = VatInvoice::where('vat_invoice_number', 'like', "{$prefix}_{$vatNickName}_%")
-            ->orderBy('id', 'desc')
-            ->first();
-
-        $nextNum = 1;
-        if ($latestVat && preg_match('/_(\d+)$/', $latestVat->vat_invoice_number, $matches)) {
-            $nextNum = intval($matches[1]) + 1;
-        }
-
-        $vatInvoiceNumber = sprintf('%s_%s_%05d', $prefix, $vatNickName, $nextNum);
-
-        // Get VAT percentage from vat_percentage table (most recent applicable)
-        $vatSetting    = DB::table('vat_percentage')
-            ->where('from_date', '<=', $invoice->invoice_date)
-            ->orderBy('from_date', 'desc')
-            ->first();
-        $vatPercentage = $vatSetting ? $vatSetting->vat_percentage : 18;
-
-        $subTotal   = $invoice->sub_total;
-        $vatAmount  = round(($subTotal * $vatPercentage) / 100, 2);
-        $totalAmount = $subTotal + $vatAmount;
-
-        // Create VAT Invoice record
-        $vatInvoice = VatInvoice::create([
-            'invoice_id'         => $invoice->id,
-            'customer_id'        => $customer->id,
-            'vat_invoice_number' => $vatInvoiceNumber,
-            'vat_invoice_date'   => now()->toDateString(),
-            'sub_total'          => $subTotal,
-            'vat_percentage'     => $vatPercentage,
-            'vat_amount'         => $vatAmount,
-            'total_amount'       => $totalAmount,
-        ]);
-
-        // Mark invoice as VAT issued
-        $invoice->update(['is_vat_invoice_issued' => true]);
-
-        return Pdf::loadView('pdf.tax-invoice', $this->buildViewData(
-            $invoice, $vatInvoice, $customer, $customerVat,
-            $totalAmount, $vatPercentage, $vatAmount, $subTotal
-        ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoiceNumber . '.pdf');
     }
 
     public function viewHistoryPdf(Request $request)
     {
-        $id         = $request->input('id');
-        $vatInvoice = VatInvoice::with(['customer', 'invoice.items.stockBatch.product', 'invoice.paymentMethod'])->findOrFail($id);
-        $invoice    = $vatInvoice->invoice;
-        $customer   = $vatInvoice->customer;
-        $customerVat = DB::table('customers_vat_details')->where('customer_id', $customer->id)->first();
+        try {
+            $id         = $request->input('id');
+            $vatInvoice = VatInvoice::with(['customer', 'invoice.items.stockBatch.product', 'invoice.paymentMethod'])->findOrFail($id);
+            $invoice    = $vatInvoice->invoice;
+            $customer   = $vatInvoice->customer;
+            $customerVat = DB::table('customers_vat_details')->where('customer_id', $customer->id)->first();
 
-        return Pdf::loadView('pdf.tax-invoice-history', $this->buildViewData(
-            $invoice,
-            $vatInvoice,
-            $customer,
-            $customerVat,
-            $vatInvoice->total_amount,
-            $vatInvoice->vat_percentage,
-            $vatInvoice->vat_amount,
-            $vatInvoice->sub_total
-        ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoice->vat_invoice_number . '.pdf');
+            return Pdf::loadView('pdf.tax-invoice-history', $this->buildViewData(
+                $invoice,
+                $vatInvoice,
+                $customer,
+                $customerVat,
+                $vatInvoice->total_amount,
+                $vatInvoice->vat_percentage,
+                $vatInvoice->vat_amount,
+                $vatInvoice->sub_total
+            ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoice->vat_invoice_number . '.pdf');
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
     }
 
     private function buildViewData($invoice, $vatInvoice, $customer, $customerVat, $totalAmount, $vatPercentage, $vatAmount, $subTotal): array

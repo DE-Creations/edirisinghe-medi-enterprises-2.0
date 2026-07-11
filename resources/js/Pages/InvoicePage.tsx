@@ -369,6 +369,7 @@ function InvoicePage() {
     const { user } = useAuth();
 
     const [invoiceNum,     setInvoiceNum]     = useState('INV-0001');
+    const [poNumber,       setPoNumber]       = useState('');
     const [invoiceDate,    setInvoiceDate]    = useState(format(new Date(), 'yyyy-MM-dd'));
     const [selectedCustomer, setSelectedCustomer] = useState<string>('');
     const [paymentMethod,  setPaymentMethod]  = useState<number>(0);
@@ -550,6 +551,7 @@ function InvoicePage() {
             const res = await axios.post('/invoice/store', {
                 customer_id:    Number(selectedCustomer),
                 user_id:        user?.id,
+                po_number:      poNumber || null,
                 invoice_date:   invoiceDate,
                 sub_total:      subTotal,
                 discount:       Number(discount || 0),
@@ -573,6 +575,7 @@ function InvoicePage() {
             // Reset
             setCart([]);
             setSelectedCustomer('');
+            setPoNumber('');
             setDiscount('');
             setPaidAmount('');
             setPaymentMethod(0);
@@ -649,6 +652,12 @@ function InvoicePage() {
                             <ShoppingCart className="h-4 w-4 text-primary" />
                             <span className="text-sm font-semibold font-mono">{invoiceNum}</span>
                         </div>
+                        <Input
+                            value={poNumber}
+                            onChange={(e) => setPoNumber(e.target.value)}
+                            placeholder="PO No:"
+                            className="h-8 w-32 text-xs px-2"
+                        />
                         <DatePicker value={invoiceDate} onChange={setInvoiceDate}
                             className="h-8 text-xs px-2" />
                     </div>
