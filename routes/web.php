@@ -26,6 +26,7 @@ use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\VatInvoiceController;
 use App\Http\Controllers\VatInvoiceApiController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\CreditNoteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -210,6 +211,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/vat-invoice/history',    [VatInvoiceApiController::class, 'history']);
     Route::post('/vat-invoice/generate',  [VatInvoiceController::class, 'generatePdf']);
     Route::post('/vat-invoice/reprint',   [VatInvoiceController::class, 'viewHistoryPdf']);
+
+    // ── Credit Notes ───────────────────────────────────────────────────────
+    Route::get('/credit-notes',              fn() => Inertia::render('CreditNotePage'));
+    Route::get('/credit-notes-history',      fn() => Inertia::render('CreditNoteHistoryPage'));
+    Route::get('/credit-note/print/{id}',    [CreditNoteController::class, 'printView']);
+    Route::prefix('/credit-note')->group(function () {
+        Route::get('/next-number',       [CreditNoteController::class, 'nextNumber']);
+        Route::get('/invoice-search',    [CreditNoteController::class, 'searchInvoices']);
+        Route::get('/invoice/{id}',      [CreditNoteController::class, 'getInvoiceForCredit']);
+        Route::get('/all',               [CreditNoteController::class, 'all']);
+        Route::get('/show/{id}',         [CreditNoteController::class, 'show']);
+        Route::post('/store',            [CreditNoteController::class, 'store']);
+        Route::delete('/delete/{id}',    [CreditNoteController::class, 'delete']);
+    });
 
     // ── Notifications ──────────────────────────────────────────────────────
     Route::get('/notifications/overdue-invoices', [NotificationController::class, 'overdueInvoices']);

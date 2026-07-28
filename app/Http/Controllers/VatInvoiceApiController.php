@@ -12,8 +12,9 @@ class VatInvoiceApiController extends Controller
     public function getCustomers()
     {
         return DB::table('customers')
-            ->where('is_vat', true)
-            ->select('id', 'name', 'vat_nick_name')
+            ->leftJoin('customers_vat_details', 'customers.id', '=', 'customers_vat_details.customer_id')
+            ->where('customers.is_vat', true)
+            ->select('customers.id', 'customers.name', 'customers_vat_details.nick_name')
             ->get();
     }
 

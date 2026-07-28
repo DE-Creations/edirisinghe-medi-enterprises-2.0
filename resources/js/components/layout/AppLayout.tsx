@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FileText, Package, ShoppingCart,
   Truck, ClipboardList, Settings, LogOut,
   ChevronLeft, ChevronRight, Pill, Receipt, History,
-  UserCheck, Menu, TrendingUp, TrendingDown,
+  UserCheck, Menu, TrendingUp, TrendingDown, RotateCcw, FileMinus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import NotificationBell from './NotificationBell';
@@ -29,6 +29,8 @@ const navItems: NavItem[] = [
   { label: 'Customers', path: '/customers', icon: UserCheck, roles: ['owner', 'admin', 'cashier'] },
   { label: 'Suppliers', path: '/suppliers', icon: Truck, roles: ['owner', 'admin'] },
   { label: 'VAT Invoices', path: '/vat-invoices', icon: Receipt, roles: ['owner', 'admin'] },
+  { label: 'Credit Notes', path: '/credit-notes', icon: RotateCcw, roles: ['owner', 'admin', 'cashier'] },
+  { label: 'Credit Note History', path: '/credit-notes-history', icon: FileMinus, roles: ['owner', 'admin', 'cashier'] },
   { label: 'Receivables', path: '/receivables', icon: TrendingUp, roles: ['owner', 'admin'] },
   { label: 'Payables', path: '/payables', icon: TrendingDown, roles: ['owner', 'admin'] },
   { label: 'Settings', path: '/settings', icon: Settings, roles: ['owner', 'admin'] },

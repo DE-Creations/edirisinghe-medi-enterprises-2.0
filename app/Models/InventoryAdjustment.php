@@ -12,6 +12,7 @@ class InventoryAdjustment extends Model
 
     protected $fillable = [
         'stock_batch_id',
+        'credit_note_id',
         'user_id',
         'quantity',
         'type',
@@ -20,10 +21,14 @@ class InventoryAdjustment extends Model
     ];
 
     public function stockBatch(): BelongsTo {
-        return $this->belongsTo(StockBatches::class, 'stock_batch_id'); 
+        return $this->belongsTo(StockBatches::class, 'stock_batch_id');
     }
 
     public function user(): BelongsTo {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function creditNote(): BelongsTo {
+        return $this->belongsTo(CreditNote::class, 'credit_note_id');
     }
 }
