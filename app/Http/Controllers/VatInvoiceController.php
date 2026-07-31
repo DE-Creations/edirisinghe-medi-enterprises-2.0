@@ -8,13 +8,20 @@ use App\Models\Settings;
 use App\Models\Invoice;
 use App\Models\VatInvoice;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 
 class VatInvoiceController extends Controller
 {
     public function generatePdf(Request $request)
     {
+        $request->validate([
+            'invoice_id' => 'required|integer',
+            'from_date'  => 'nullable|date',
+        ]);
+
         try {
             $invoiceId = $request->input('invoice_id');
+            $fromDate  = $request->input('from_date');
             $invoice   = Invoice::with(['customer', 'items.stockBatch.product', 'paymentMethod'])->findOrFail($invoiceId);
 
             if ($invoice->is_vat_invoice_issued) {
@@ -23,50 +30,98 @@ class VatInvoiceController extends Controller
 
             $customer    = $invoice->customer;
             $customerVat = DB::table('customers_vat_details')->where('customer_id', $customer->id)->first();
-            $vatNickName = strtoupper($customerVat?->nick_name ?? substr($customer->name, 0, 2));
-            $prefix      = date('y') . strtoupper(date('M'));
 
-            $latestVat = VatInvoice::where('vat_invoice_number', 'like', "{$prefix}_{$vatNickName}_%")
-                ->orderBy('id', 'desc')
-                ->first();
+            return DB::transaction(function () use ($invoice, $customer, $customerVat, $fromDate) {
+                // Lock the last-generated VAT invoice row so concurrent requests
+                // serialize on number generation instead of racing each other.
+                DB::table('vat_invoice')->lockForUpdate()->orderBy('id', 'desc')->first();
 
-            $nextNum = 1;
-            if ($latestVat && preg_match('/_(\d+)$/', $latestVat->vat_invoice_number, $matches)) {
-                $nextNum = intval($matches[1]) + 1;
-            }
+                $vatInvoiceNumber = $this->generateNextVatInvoiceNumber(
+                    $invoice->invoice_date,
+                    $fromDate,
+                    $customerVat?->nick_name
+                );
 
-            $vatInvoiceNumber = sprintf('%s_%s_%05d', $prefix, $vatNickName, $nextNum);
+                if (VatInvoice::where('vat_invoice_number', $vatInvoiceNumber)->exists()) {
+                    return response()->json([
+                        'message' => 'Generated VAT invoice number already exists, please try again.',
+                    ], 409);
+                }
 
-            $vatSetting    = DB::table('vat_percentage')
-                ->where('from_date', '<=', $invoice->invoice_date)
-                ->orderBy('from_date', 'desc')
-                ->first();
-            $vatPercentage = $vatSetting ? $vatSetting->vat_percentage : 18;
+                $vatSetting    = DB::table('vat_percentage')
+                    ->where('from_date', '<=', $invoice->invoice_date)
+                    ->orderBy('from_date', 'desc')
+                    ->first();
+                $vatPercentage = $vatSetting ? $vatSetting->vat_percentage : 18;
 
-            $subTotal   = $invoice->sub_total;
-            $vatAmount   = ($subTotal * $vatPercentage) / 100;
-            $totalAmount = $subTotal + $vatAmount;
+                $subTotal    = $invoice->sub_total;
+                $vatAmount   = ($subTotal * $vatPercentage) / 100;
+                $totalAmount = $subTotal + $vatAmount;
 
-            $vatInvoice = VatInvoice::create([
-                'invoice_id'         => $invoice->id,
-                'customer_id'        => $customer->id,
-                'vat_invoice_number' => $vatInvoiceNumber,
-                'vat_invoice_date'   => now()->toDateString(),
-                'sub_total'          => $subTotal,
-                'vat_percentage'     => $vatPercentage,
-                'vat_amount'         => $vatAmount,
-                'total_amount'       => $totalAmount,
-            ]);
+                $vatInvoice = VatInvoice::create([
+                    'invoice_id'         => $invoice->id,
+                    'customer_id'        => $customer->id,
+                    'vat_invoice_number' => $vatInvoiceNumber,
+                    'vat_invoice_date'   => now()->toDateString(),
+                    'sub_total'          => $subTotal,
+                    'vat_percentage'     => $vatPercentage,
+                    'vat_amount'         => $vatAmount,
+                    'total_amount'       => $totalAmount,
+                ]);
 
-            $invoice->update(['is_vat_invoice_issued' => true]);
+                $invoice->update(['is_vat_invoice_issued' => true]);
 
-            return Pdf::loadView('pdf.tax-invoice', $this->buildViewData(
-                $invoice, $vatInvoice, $customer, $customerVat,
-                $totalAmount, $vatPercentage, $vatAmount, $subTotal
-            ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoiceNumber . '.pdf');
+                return Pdf::loadView('pdf.tax-invoice', $this->buildViewData(
+                    $invoice, $vatInvoice, $customer, $customerVat,
+                    $totalAmount, $vatPercentage, $vatAmount, $subTotal
+                ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoiceNumber . '.pdf');
+            });
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Build the next tax invoice number: {YY}{MON}_{NICK}_{SEQ}, e.g. 26JUL_TAX_00014.
+     *
+     * - YY   comes from $fromDate when given, otherwise $invoiceDate.
+     * - MON  always comes from $invoiceDate (the underlying invoice's own date).
+     * - NICK is the customer's VAT nickname, or the literal "TAX" when unset/blank.
+     * - SEQ  is a single global counter (not per-customer): it continues from the
+     *        very last VAT invoice number ever generated, resetting to 1 whenever
+     *        the 2-digit year prefix changes.
+     */
+    private function generateNextVatInvoiceNumber(string $invoiceDate, ?string $fromDate, ?string $nickName): string
+    {
+        $yy  = Carbon::parse($fromDate ?: $invoiceDate)->format('y');
+        $mon = strtoupper(Carbon::parse($invoiceDate)->format('M'));
+        $prefix = $yy . $mon;
+
+        $nick = ($nickName !== null && trim($nickName) !== '')
+            ? strtoupper(trim($nickName))
+            : 'TAX';
+
+        $lastVatInvoice = VatInvoice::orderBy('id', 'desc')->first();
+
+        $sequence = 1;
+        if ($lastVatInvoice) {
+            $lastNumber     = $lastVatInvoice->vat_invoice_number;
+            $lastYearPrefix = substr($lastNumber, 0, 2);
+            $lastSequence   = (int) substr($lastNumber, -5);
+            $sequence = ($lastYearPrefix === $yy) ? $lastSequence + 1 : 1;
+        }
+
+        // Skip forward past any number that already exists for this exact
+        // slot (e.g. leftover data from the previous per-customer numbering
+        // scheme) so a single generation call is self-healing rather than
+        // deterministically re-colliding forever on retry.
+        do {
+            $vatInvoiceNumber = sprintf('%s_%s_%05d', $prefix, $nick, $sequence);
+            $taken = VatInvoice::where('vat_invoice_number', $vatInvoiceNumber)->exists();
+            $sequence++;
+        } while ($taken);
+
+        return $vatInvoiceNumber;
     }
 
     public function viewHistoryPdf(Request $request)

@@ -97,13 +97,6 @@ export default function VATInvoicesPage() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [reprintingId, setReprintingId] = useState<number | null>(null);
 
-  const getCsrfToken = (): string => {
-    const meta = document.querySelector('meta[name="csrf-token"]');
-    if (meta) return meta.getAttribute('content') || '';
-    const cookieMatch = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-    return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
-  };
-
   const readBlobError = async (error: any): Promise<string> => {
     if (error.response?.data instanceof Blob) {
       try {
@@ -123,13 +116,7 @@ export default function VATInvoicesPage() {
     try {
       const response = await axios.post('/vat-invoice/generate',
         { invoice_id: selectedInvoiceId },
-        {
-          responseType: 'blob',
-          headers: {
-            'X-CSRF-TOKEN': getCsrfToken(),
-            'Content-Type': 'application/json',
-          }
-        }
+        { responseType: 'blob' }
       );
 
       const blob = new Blob([response.data], { type: 'application/pdf' });
@@ -157,13 +144,7 @@ export default function VATInvoicesPage() {
     try {
       const response = await axios.post('/vat-invoice/reprint',
         { id },
-        {
-          responseType: 'blob',
-          headers: {
-            'X-CSRF-TOKEN': getCsrfToken(),
-            'Content-Type': 'application/json',
-          }
-        }
+        { responseType: 'blob' }
       );
 
       const blob = new Blob([response.data], { type: 'application/pdf' });
