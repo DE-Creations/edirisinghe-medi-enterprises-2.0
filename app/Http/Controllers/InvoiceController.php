@@ -118,7 +118,8 @@ class InvoiceController extends Controller
                 'items.stockBatch:id,batch_number,product_id',
                 'items.stockBatch.product:id,generic_name',
             ])
-            ->latest();
+            ->latest()
+            ->orderByDesc('id'); // tie-breaker so pages never overlap or skip rows
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -132,7 +133,12 @@ class InvoiceController extends Controller
             $query->whereDate('invoice_date', $request->date);
         }
 
-        return response()->json($query->paginate(50));
+        // Default view: last 3 months only. A search or an explicit date looks further back.
+        if (!$request->filled('search') && !$request->filled('date')) {
+            $query->where('invoice_date', '>=', now()->subMonths(3)->startOfDay());
+        }
+
+        return response()->json($query->paginate(20));
     }
 
     public function store(Request $request) {

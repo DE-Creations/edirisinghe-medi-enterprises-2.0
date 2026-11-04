@@ -680,6 +680,8 @@ import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import axios from 'axios';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import TablePagination from '@/components/shared/TablePagination';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
 
 type Tab = 'grn' | 'expenses';
 
@@ -704,6 +706,16 @@ interface ExpenseItem {
     notes:          string | null;
 }
 
+interface GrnMeta {
+    total_payable:     number;
+    total_outstanding: number;
+    counts: { all: number; outstanding: number; paid: number };
+}
+
+interface ExpenseMeta {
+    total_expenses: number;
+}
+
 interface PaymentRecord {
     id:     number;
     amount: number;
@@ -715,11 +727,15 @@ interface PaymentRecord {
 function PayablesPage() {
     const { user } = useAuth();
     const [tab,          setTab]          = useState<Tab>('grn');
-    const [grns,         setGrns]         = useState<GrnPayable[]>([]);
-    const [expenses,     setExpenses]     = useState<ExpenseItem[]>([]);
     const [search,       setSearch]       = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'outstanding' | 'paid'>('outstanding');
     const [loading,      setLoading]      = useState(false);
+
+    // Both lists stay loaded (the summary cards use both); each applies the search only while its tab is active.
+    const grnList = usePaginatedList<GrnPayable, GrnMeta>('/payables/grns',
+        { search: tab === 'grn' ? search : '', tab: statusFilter });
+    const expList = usePaginatedList<ExpenseItem, ExpenseMeta>('/payables/expenses',
+        { search: tab === 'expenses' ? search : '' });
 
     // Payment modal
     const [payOpen,   setPayOpen]   = useState(false);
@@ -752,8 +768,6 @@ function PayablesPage() {
     const [grnDetailData, setGrnDetailData] = useState<{ grn: any; payments: PaymentRecord[] } | null>(null);
 
     useEffect(() => {
-        fetchGrns();
-        fetchExpenses();
         axios.get('/expenses-category/all').then(r =>
             setExpenseCategories(r.data.map((c: any) => ({ value: String(c.id), label: c.name })))
         ).catch(() => {});
@@ -767,41 +781,10 @@ function PayablesPage() {
         }
     }, [expOpen]);
 
-    const fetchGrns = async () => {
-        try {
-            const res = await axios.get('/payables/grns');
-            setGrns(res.data);
-        } catch (e) { console.log(e); }
-    };
-
-    const fetchExpenses = async () => {
-        try {
-            const res = await axios.get('/payables/expenses');
-            setExpenses(res.data);
-        } catch (e) { console.log(e); }
-    };
-
-    // Summary
-    const totalGRNPayable     = grns.reduce((s, g) => s + Number(g.total_amount), 0);
-    const totalGRNOutstanding = grns.reduce((s, g) => s + Number(g.outstanding), 0);
-    const totalExpense        = expenses.reduce((s, e) => s + Number(e.amount), 0);
-    const totalOutstanding    = totalGRNOutstanding;
-
-    // Filtered
-    const filteredGRNs = grns.filter((g) => {
-        const matchSearch = g.grn_number.toLowerCase().includes(search.toLowerCase()) ||
-            g.supplier.toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === 'all' ||
-            (statusFilter === 'outstanding' && g.outstanding > 0) ||
-            (statusFilter === 'paid' && g.outstanding <= 0);
-        return matchSearch && matchStatus;
-    });
-
-    const filteredExpenses = expenses.filter((e) => {
-        return e.expense_number.toLowerCase().includes(search.toLowerCase()) ||
-            e.description.toLowerCase().includes(search.toLowerCase()) ||
-            e.category.toLowerCase().includes(search.toLowerCase());
-    });
+    // Summary cards are computed on the server (all-time totals).
+    const totalGRNPayable     = grnList.meta?.total_payable     ?? 0;
+    const totalGRNOutstanding = grnList.meta?.total_outstanding ?? 0;
+    const totalExpense        = expList.meta?.total_expenses    ?? 0;
 
     // Open payment modal
     const openPay = (id: number, number: string, type: 'grn' | 'expense', outstanding: number) => {
@@ -827,8 +810,7 @@ function PayablesPage() {
             });
             toast.success('Payment recorded!');
             setPayOpen(false);
-            fetchGrns();
-            fetchExpenses();
+            grnList.refetch();
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Failed to record payment.');
         } finally {
@@ -881,7 +863,7 @@ function PayablesPage() {
             setExpCategory('');
             setExpAmount('');
             setExpNotes('');
-            fetchExpenses();
+            expList.refetch();
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Failed to add expense.');
         } finally {
@@ -895,7 +877,7 @@ function PayablesPage() {
             await axios.delete(`/payables/expense/${deleteExpId}`);
             toast.success('Expense deleted.');
             setDeleteExpId(null);
-            fetchExpenses();
+            expList.refetch();
         } catch (e) {
             toast.error('Failed to delete expense.');
         }
@@ -956,7 +938,7 @@ function PayablesPage() {
                         <SearchBar value={search} onChange={setSearch}
                             placeholder={tab === 'grn' ? 'Search GRN # or supplier...' : 'Search expenses...'} />
                     </div>
-                    <div className="flex gap-2">
+                    {tab === 'grn' && <div className="flex gap-2">
                         {(['all', 'outstanding', 'paid'] as const).map((s) => (
                             <button key={s} onClick={() => setStatusFilter(s)}
                                 className={cn('px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
@@ -964,7 +946,7 @@ function PayablesPage() {
                                 {s}
                             </button>
                         ))}
-                    </div>
+                    </div>}
                     {tab === 'expenses' && (
                         <Button onClick={() => setExpOpen(true)} className="gap-2 ml-auto shrink-0">
                             <Plus className="h-4 w-4" /> Add Expense
@@ -972,6 +954,13 @@ function PayablesPage() {
                     )}
                 </div>
             </div>
+            <p className="text-xs text-muted-foreground -mt-3">
+                {search.trim()
+                    ? 'Showing matching records from all dates.'
+                    : tab === 'grn' && statusFilter === 'outstanding'
+                        ? 'Showing every unpaid GRN, regardless of age.'
+                        : 'Showing the last 3 months — search to look through all records.'}
+            </p>
 
             {/* GRN Payables Table */}
             {tab === 'grn' && (
@@ -991,9 +980,9 @@ function PayablesPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredGRNs.length === 0 ? (
+                                {grnList.rows.length === 0 ? (
                                     <tr><td colSpan={8} className="text-center py-10 text-sm text-muted-foreground">No GRNs found.</td></tr>
-                                ) : filteredGRNs.map((g) => (
+                                ) : grnList.rows.map((g) => (
                                     <tr key={g.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                                         <td className="px-4 py-3 text-sm font-medium text-primary font-mono">{g.grn_number}</td>
                                         <td className="px-4 py-3 text-sm">{g.received_date?.split('T')[0]}</td>
@@ -1030,6 +1019,9 @@ function PayablesPage() {
                     </div>
                 </div>
             )}
+            {tab === 'grn' && (
+                <TablePagination page={grnList.page} lastPage={grnList.lastPage} total={grnList.total} onPageChange={grnList.setPage} />
+            )}
 
             {/* Expenses Table */}
             {tab === 'expenses' && (
@@ -1047,9 +1039,9 @@ function PayablesPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredExpenses.length === 0 ? (
+                                {expList.rows.length === 0 ? (
                                     <tr><td colSpan={6} className="text-center py-10 text-sm text-muted-foreground">No expenses found.</td></tr>
-                                ) : filteredExpenses.map((e) => (
+                                ) : expList.rows.map((e) => (
                                     <tr key={e.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                                         <td className="px-4 py-3 text-sm font-medium text-primary font-mono">{e.expense_number}</td>
                                         <td className="px-4 py-3 text-sm">{e.date}</td>
@@ -1072,6 +1064,9 @@ function PayablesPage() {
                         </table>
                     </div>
                 </div>
+            )}
+            {tab === 'expenses' && (
+                <TablePagination page={expList.page} lastPage={expList.lastPage} total={expList.total} onPageChange={expList.setPage} />
             )}
 
             {/* Record Payment Modal */}

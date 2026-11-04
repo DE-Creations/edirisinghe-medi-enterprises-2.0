@@ -349,7 +349,7 @@
 
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -361,6 +361,8 @@ import { Plus, CreditCard, CheckCircle2, Clock, Eye } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import axios from 'axios';
+import TablePagination from '@/components/shared/TablePagination';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
 
 interface InvoiceReceivable {
     id:             number;
@@ -374,12 +376,20 @@ interface InvoiceReceivable {
     status:         string;
 }
 
+interface ReceivablesMeta {
+    total_invoiced:    number;
+    total_collected:   number;
+    total_outstanding: number;
+    counts: { all: number; outstanding: number; paid: number };
+}
+
 function ReceivablesPage() {
     const { user } = useAuth();
-    const [invoices, setInvoices] = useState<InvoiceReceivable[]>([]);
     const [tab,      setTab]      = useState<'all' | 'outstanding' | 'paid'>('outstanding');
     const [search,   setSearch]   = useState('');
     const [loading,  setLoading]  = useState(false);
+    const { rows: invoices, page, setPage, lastPage, total, meta, refetch } =
+        usePaginatedList<InvoiceReceivable, ReceivablesMeta>('/receivables/invoices', { search, tab });
 
     // Payment modal
     const [payOpen,   setPayOpen]   = useState(false);
@@ -392,32 +402,14 @@ function ReceivablesPage() {
     const [invDetailOpen, setInvDetailOpen] = useState(false);
     const [invDetailData, setInvDetailData] = useState<any | null>(null);
 
-    useEffect(() => { fetchInvoices(); }, []);
+    // Summary cards and tab counts are computed on the server (all-time totals).
+    const totalInvoiced    = meta?.total_invoiced    ?? 0;
+    const totalCollected   = meta?.total_collected   ?? 0;
+    const totalOutstanding = meta?.total_outstanding ?? 0;
 
-    const fetchInvoices = async () => {
-        try {
-            const res = await axios.get('/receivables/invoices');
-            setInvoices(res.data);
-        } catch (e) { console.log(e); }
-    };
-
-    // Summary
-    const totalInvoiced    = invoices.reduce((s, i) => s + Number(i.grand_total), 0);
-    const totalCollected   = invoices.reduce((s, i) => s + Number(i.collected), 0);
-    const totalOutstanding = invoices.reduce((s, i) => s + Number(i.outstanding), 0);
-
-    const filtered = invoices.filter((inv) => {
-        const matchSearch = inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
-            inv.customer.toLowerCase().includes(search.toLowerCase());
-        const matchTab = tab === 'all' ||
-            (tab === 'outstanding' && inv.outstanding > 0) ||
-            (tab === 'paid' && inv.outstanding <= 0);
-        return matchSearch && matchTab;
-    });
-
-    const countAll         = invoices.length;
-    const countOutstanding = invoices.filter(i => i.outstanding > 0).length;
-    const countPaid        = invoices.filter(i => i.outstanding <= 0).length;
+    const countAll         = meta?.counts.all         ?? 0;
+    const countOutstanding = meta?.counts.outstanding ?? 0;
+    const countPaid        = meta?.counts.paid        ?? 0;
 
     const openPay = (inv: InvoiceReceivable) => {
         setPayTarget({ id: inv.id, number: inv.invoice_number, outstanding: inv.outstanding });
@@ -440,7 +432,7 @@ function ReceivablesPage() {
             });
             toast.success('Payment recorded!');
             setPayOpen(false);
-            fetchInvoices();
+            refetch();
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Failed to record payment.');
         } finally {
@@ -495,6 +487,13 @@ function ReceivablesPage() {
                     <SearchBar value={search} onChange={setSearch} placeholder="Search invoice # or customer..." />
                 </div>
             </div>
+            <p className="text-xs text-muted-foreground -mt-3">
+                {search.trim()
+                    ? 'Showing matching invoices from all dates.'
+                    : tab === 'outstanding'
+                        ? 'Showing every unpaid invoice, regardless of age.'
+                        : 'Showing the last 3 months — search to look through all invoices.'}
+            </p>
 
             {/* Table */}
             <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -513,9 +512,9 @@ function ReceivablesPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.length === 0 ? (
+                            {invoices.length === 0 ? (
                                 <tr><td colSpan={8} className="text-center py-10 text-sm text-muted-foreground">No invoices found.</td></tr>
-                            ) : filtered.map((inv) => (
+                            ) : invoices.map((inv) => (
                                 <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                                     <td className="px-4 py-3 text-sm font-medium text-primary font-mono">{inv.invoice_number}</td>
                                     <td className="px-4 py-3 text-sm">{inv.invoice_date}</td>
@@ -551,6 +550,8 @@ function ReceivablesPage() {
                     </table>
                 </div>
             </div>
+
+            <TablePagination page={page} lastPage={lastPage} total={total} onPageChange={setPage} />
 
             {/* Record Payment Modal */}
             <Modal open={payOpen} onClose={() => setPayOpen(false)} title="Record Payment Received">

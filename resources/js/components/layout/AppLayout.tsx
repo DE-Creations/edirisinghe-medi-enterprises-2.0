@@ -118,7 +118,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const filteredNav = navItems.filter((n) => user && n.roles.includes(user.role));
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="relative flex h-screen overflow-hidden">
       <aside
         className={cn(
           'hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 relative',
