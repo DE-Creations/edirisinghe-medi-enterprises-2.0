@@ -128,6 +128,21 @@
             margin-bottom: 2px;
         }
 
+        /* Remark Box */
+        .remark-table {
+            width: 100%;
+            margin-bottom: 6px;
+        }
+
+        .remark-box {
+            border: 1px solid #000;
+            padding: 8px;
+        }
+
+        .remark-box .po-no {
+            margin-left: 30px;
+        }
+
         /* Invoice Items Table */
         .items-table {
             width: 100%;
@@ -256,6 +271,7 @@
             .title-container,
             .info-header-table,
             .party-info-table,
+            .remark-table,
             .items-table,
             .totals-table,
             .bottom-box {
@@ -350,6 +366,15 @@
         </tr>
     </table>
 
+    <!-- Remark -->
+    <table class="remark-table">
+        <tr>
+            <td class="remark-box">
+                Remark: Client Name - {{ $remarkClientName }}@if(!empty($poNumber))<span class="po-no">PO No. - {{ $poNumber }}</span>@endif
+            </td>
+        </tr>
+    </table>
+
     <!-- Items Table -->
     <table class="items-table">
         <thead>
@@ -420,6 +445,26 @@
     <!-- Mode of Payment -->
     <div class="bottom-box">
         Mode of Payment: <strong>{{ $paymentMode }}</strong>
+    </div>
+
+    <!-- Signing Section -->
+    <div style="margin-top: 60px;">
+        <table style="width: 80%; margin: 0 auto; border-collapse: collapse;">
+            <tr>
+                <td style="width: 30%; text-align: center; border-bottom: 1px dotted #000; height: 40px; vertical-align: bottom;">&nbsp;</td>
+                <td style="width: 5%;">&nbsp;</td>
+                <td style="width: 30%; text-align: center; border-bottom: 1px dotted #000; height: 40px; vertical-align: bottom;">&nbsp;</td>
+                <td style="width: 5%;">&nbsp;</td>
+                <td style="width: 30%; text-align: center; border-bottom: 1px dotted #000; height: 40px; vertical-align: bottom;">&nbsp;</td>
+            </tr>
+            <tr>
+                <td style="text-align: center; font-size: 9pt; font-weight: bold; padding-top: 4px;">Prepared By</td>
+                <td>&nbsp;</td>
+                <td style="text-align: center; font-size: 9pt; font-weight: bold; padding-top: 4px;">Checked By</td>
+                <td>&nbsp;</td>
+                <td style="text-align: center; font-size: 9pt; font-weight: bold; padding-top: 4px;">Received By</td>
+            </tr>
+        </table>
     </div>
 
     <!-- Footer -->

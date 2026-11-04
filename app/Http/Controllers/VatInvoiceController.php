@@ -176,6 +176,8 @@ class VatInvoiceController extends Controller
             'clientName'       => $customerVat?->company_name ?? $customer->name,
             'clientAddress'    => $customerVat?->company_address ?? $customer->address ?? '',
             'clientPhone'      => $customerVat?->company_contact ?? $customer->contact_no ?? '',
+            'remarkClientName' => $customerVat?->company_name ?? $customer->name,
+            'poNumber'         => $invoice->po_number,
             'records'          => $records,
             'subtotal'         => $subTotal,
             'vatPercentage'    => $vatPercentage,
