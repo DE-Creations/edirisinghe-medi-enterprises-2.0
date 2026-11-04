@@ -14,7 +14,7 @@ class VatInvoiceApiController extends Controller
         return DB::table('customers')
             ->leftJoin('customers_vat_details', 'customers.id', '=', 'customers_vat_details.customer_id')
             ->where('customers.is_vat', true)
-            ->select('customers.id', 'customers.name', 'customers_vat_details.nick_name')
+            ->select('customers.id', 'customers.name', 'customers_vat_details.nick_name as vat_nick_name')
             ->get();
     }
 
@@ -57,27 +57,44 @@ class VatInvoiceApiController extends Controller
 
     public function history(Request $request)
     {
-        $query = VatInvoice::orderBy('created_at', 'desc');
+        $query = VatInvoice::with(['invoice:id,invoice_number', 'customer:id,name'])
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc'); // tie-breaker so pages never overlap or skip rows
+
+        if (! $request->filled('search')) {
+            // Default view: last 3 months only. Searching looks through everything.
+            $query->where('created_at', '>=', now()->subMonths(3)->startOfDay());
+        }
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where('vat_invoice_number', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('vat_invoice_number', 'like', "%{$search}%")
+                  ->orWhereHas('customer', function ($c) use ($search) {
+                      $c->where('name', 'like', "%{$search}%")
+                        ->orWhereHas('vatDetail', function ($v) use ($search) {
+                            $v->where('company_name', 'like', "%{$search}%")
+                              ->orWhere('nick_name', 'like', "%{$search}%");
+                        });
+                  })
+                  ->orWhereHas('invoice', function ($i) use ($search) {
+                      $i->where('invoice_number', 'like', "%{$search}%");
+                  });
+            });
         }
 
-        $results = $query->get()->map(function ($vi) {
-            $invoice  = Invoice::find($vi->invoice_id, ['invoice_number']);
-            $customer = DB::table('customers')->where('id', $vi->customer_id)->first(['name']);
+        $results = $query->paginate(20)->through(function ($vi) {
             return [
                 'id'                  => $vi->id,
                 'vat_invoice_number'  => $vi->vat_invoice_number,
                 'vat_invoice_date'    => $vi->vat_invoice_date,
                 'total_amount'        => $vi->total_amount,
                 'created_at'          => $vi->created_at,
-                'invoice'             => $invoice,
-                'customer'            => $customer,
+                'invoice'             => $vi->invoice,
+                'customer'            => $vi->customer,
             ];
         });
 
-        return response()->json(['data' => $results]);
+        return response()->json($results);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Settings;
@@ -74,8 +75,18 @@ class VatInvoiceController extends Controller
                 return Pdf::loadView('pdf.tax-invoice', $this->buildViewData(
                     $invoice, $vatInvoice, $customer, $customerVat,
                     $totalAmount, $vatPercentage, $vatAmount, $subTotal
-                ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoiceNumber . '.pdf');
+                ))->setPaper([0, 0, 684, 792], 'portrait')
+                    ->setOption('isPhpEnabled', true)
+                    ->stream('TaxInvoice-' . $vatInvoiceNumber . '.pdf');
             });
+        } catch (QueryException $e) {
+            // Unique constraint race: two requests generated the same number concurrently.
+            if ((int) $e->getCode() === 23000) {
+                return response()->json([
+                    'message' => 'Generated VAT invoice number already exists, please try again.',
+                ], 409);
+            }
+            return response()->json(['message' => $e->getMessage()], 500);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
@@ -142,7 +153,9 @@ class VatInvoiceController extends Controller
                 $vatInvoice->vat_percentage,
                 $vatInvoice->vat_amount,
                 $vatInvoice->sub_total
-            ))->setPaper([0, 0, 684, 792], 'portrait')->stream('TaxInvoice-' . $vatInvoice->vat_invoice_number . '.pdf');
+            ))->setPaper([0, 0, 684, 792], 'portrait')
+                ->setOption('isPhpEnabled', true)
+                ->stream('TaxInvoice-' . $vatInvoice->vat_invoice_number . '.pdf');
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
@@ -176,8 +189,8 @@ class VatInvoiceController extends Controller
             'clientName'       => $customerVat?->company_name ?? $customer->name,
             'clientAddress'    => $customerVat?->company_address ?? $customer->address ?? '',
             'clientPhone'      => $customerVat?->company_contact ?? $customer->contact_no ?? '',
-            'remarkClientName' => $customerVat?->company_name ?? $customer->name,
-            'poNumber'         => $invoice->po_number,
+            'remarkClientName' => $customer->name,
+            'poNumber'         => $invoice->po_number ?? null,
             'records'          => $records,
             'subtotal'         => $subTotal,
             'vatPercentage'    => $vatPercentage,

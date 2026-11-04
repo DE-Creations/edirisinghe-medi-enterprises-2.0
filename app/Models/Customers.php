@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Customers extends Model
 {
@@ -16,6 +17,10 @@ class Customers extends Model
     ];
 
     public function invoices(): HasMany { 
-        return $this->hasMany(Invoice::class, 'customer_id'); 
+        return $this->hasMany(Invoice::class, 'customer_id');
+    }
+
+    public function vatDetail(): HasOne {
+        return $this->hasOne(CustomerVatDetail::class, 'customer_id');
     }
 }

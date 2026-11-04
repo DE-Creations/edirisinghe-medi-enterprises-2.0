@@ -1,9 +1,11 @@
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
+import TablePagination from '@/components/shared/TablePagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +20,7 @@ interface InvoiceDetail { id: number; invoice_number: string; invoice_date: stri
 interface CustomerVat { company_name?: string; nick_name?: string; company_address?: string; company_contact?: string; vat_number?: string; }
 interface InvoiceDataResponse { invoice: InvoiceDetail; customer_vat: CustomerVat | null; vat_percentage: number; vat_amount: number; total_amount: number; }
 
+const HISTORY_DEFAULT_NOTE = 'Showing the last 3 months — search to look through all records.';
 
 export default function VATInvoicesPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -34,12 +37,17 @@ export default function VATInvoicesPage() {
 
   const [history, setHistory] = useState<any[]>([]);
   const [historySearch, setHistorySearch] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLastPage, setHistoryLastPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const lastHistorySearch = useRef<string | null>(null);
+  const historyRequestId = useRef(0);
 
   useEffect(() => {
     axios.get('/vat-invoice/customers')
       .then(res => setCustomers(Array.isArray(res.data) ? res.data : []))
       .catch(() => setCustomers([]));
-    fetchHistory();
   }, []);
 
   const handleSearchInvoices = async () => {
@@ -79,20 +87,35 @@ export default function VATInvoicesPage() {
     }
   };
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (page = historyPage) => {
+    const requestId = ++historyRequestId.current;
+    setHistoryLoading(true);
     try {
-      const res = await axios.get('/vat-invoice/history', { params: { search: historySearch } });
+      const res = await axios.get('/vat-invoice/history', {
+        params: { page, search: historySearch || undefined },
+      });
+      if (requestId !== historyRequestId.current) return; // a newer request superseded this one
       const data = res.data;
-      setHistory(Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []);
+      setHistory(Array.isArray(data?.data) ? data.data : []);
+      setHistoryLastPage(data?.last_page ?? 1);
+      setHistoryTotal(data?.total ?? 0);
     } catch (e) {
+      if (requestId !== historyRequestId.current) return;
       setHistory([]);
+      setHistoryLastPage(1);
+      setHistoryTotal(0);
+    } finally {
+      if (requestId === historyRequestId.current) setHistoryLoading(false);
     }
   };
 
+  // Debounce only when the search text changed; page clicks fetch immediately.
   useEffect(() => {
-    const t = setTimeout(() => fetchHistory(), 500);
+    const searchChanged = lastHistorySearch.current !== null && lastHistorySearch.current !== historySearch;
+    lastHistorySearch.current = historySearch;
+    const t = setTimeout(() => fetchHistory(historyPage), searchChanged ? 500 : 0);
     return () => clearTimeout(t);
-  }, [historySearch]);
+  }, [historySearch, historyPage]);
 
   const [isPrinting, setIsPrinting] = useState(false);
   const [reprintingId, setReprintingId] = useState<number | null>(null);
@@ -128,7 +151,9 @@ export default function VATInvoicesPage() {
       setSelectedInvoiceId('');
       setTimeout(() => {
         handleSearchInvoices();
-        fetchHistory();
+        // Show the new invoice at the top of the first page.
+        if (historyPage !== 1) setHistoryPage(1);
+        else fetchHistory(1);
       }, 500);
     } catch (error: any) {
       console.error('Error generating VAT invoice:', error);
@@ -189,14 +214,14 @@ export default function VATInvoicesPage() {
                 <div className="flex flex-wrap gap-4 items-end">
                   <div className="flex-1 min-w-[200px]">
                     <Label className="mb-1 block">Customer</Label>
-                    <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-                      <SelectTrigger><SelectValue placeholder="Select Customer" /></SelectTrigger>
-                      <SelectContent>
-                        {customers.map(c => (
-                          <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={customers.map(c => ({ value: c.id.toString(), label: c.name }))}
+                      value={selectedCustomerId}
+                      onValueChange={setSelectedCustomerId}
+                      placeholder="Select Customer"
+                      searchPlaceholder="Search customers..."
+                      className="w-full"
+                    />
                   </div>
                   <div className="w-36">
                     <Label className="mb-1 block">Year</Label>
@@ -370,12 +395,19 @@ export default function VATInvoicesPage() {
                 <div className="flex justify-between items-center">
                   <CardTitle>Generated VAT Invoices</CardTitle>
                   <div className="w-64">
-                    <Input placeholder="Search by VAT invoice no…" value={historySearch} onChange={e => setHistorySearch(e.target.value)} />
+                    <Input
+                      placeholder="Search by VAT invoice no. or customer…"
+                      value={historySearch}
+                      onChange={e => { setHistorySearch(e.target.value); setHistoryPage(1); }}
+                    />
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {historySearch.trim() ? 'Showing matches from all records.' : HISTORY_DEFAULT_NOTE}
+                </p>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
+                <div className={`overflow-x-auto transition-opacity ${historyLoading ? 'opacity-60' : ''}`}>
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
@@ -414,6 +446,13 @@ export default function VATInvoicesPage() {
                     </tbody>
                   </table>
                 </div>
+
+                <TablePagination
+                  page={historyPage}
+                  lastPage={historyLastPage}
+                  total={historyTotal}
+                  onPageChange={setHistoryPage}
+                />
               </CardContent>
             </Card>
           </TabsContent>

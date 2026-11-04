@@ -239,7 +239,7 @@
 
 import { Head } from '@inertiajs/react';
 import AppShell from '@/AppShell';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import SearchBar from '@/components/shared/SearchBar';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -248,6 +248,8 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { Printer, Eye, Trash2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import axios from 'axios';
+import TablePagination from '@/components/shared/TablePagination';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
 
 interface InvoiceItem {
     id:         number;
@@ -275,49 +277,18 @@ interface Invoice {
 }
 
 function InvoiceHistoryPage() {
-    const [invoices,    setInvoices]    = useState<Invoice[]>([]);
     const [search,      setSearch]      = useState('');
     const [dateFilter,  setDateFilter]  = useState('');
     const [viewInv,     setViewInv]     = useState<Invoice | null>(null);
     const [deleteId,    setDeleteId]    = useState<number | null>(null);
-    const [page,        setPage]        = useState(1);
-    const [lastPage,    setLastPage]    = useState(1);
-    const [total,       setTotal]       = useState(0);
-    const [loading,     setLoading]     = useState(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const fetchInvoices = async (pg: number, s: string, d: string) => {
-        setLoading(true);
-        try {
-            const res = await axios.get('/invoice/all', {
-                params: { page: pg, search: s || undefined, date: d || undefined },
-            });
-            setInvoices(res.data.data);
-            setLastPage(res.data.last_page);
-            setTotal(res.data.total);
-        } catch (e) { console.log(e); }
-        finally { setLoading(false); }
-    };
-
-    // Fetch when page changes
-    useEffect(() => { fetchInvoices(page, search, dateFilter); }, [page]);
-
-    // Debounce search/date changes and reset to page 1
-    useEffect(() => {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => {
-            setPage(1);
-            fetchInvoices(1, search, dateFilter);
-        }, 350);
-        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    }, [search, dateFilter]);
+    const { rows: invoices, page, setPage, lastPage, total, loading, refetch } =
+        usePaginatedList<Invoice>('/invoice/all', { search, date: dateFilter });
 
     const handleDelete = async () => {
         try {
             await axios.delete(`/invoice/delete/${deleteId}`);
-            setInvoices((prev) => prev.filter((i) => i.id !== deleteId));
             setDeleteId(null);
-            setTotal((t) => t - 1);
+            refetch();
             toast.success('Invoice deleted.');
         } catch (e) {
             toast.error('Failed to delete invoice.');
@@ -339,6 +310,12 @@ function InvoiceHistoryPage() {
                 <DatePicker value={dateFilter} onChange={setDateFilter}
                     placeholder="Filter by date" className="w-full sm:w-44" />
             </div>
+
+            <p className="text-xs text-muted-foreground">
+                {search.trim() || dateFilter
+                    ? 'Showing matching records from all dates.'
+                    : 'Showing the last 3 months — search or pick a date to see older records.'}
+            </p>
 
             <div className="bg-card rounded-xl border border-border overflow-hidden">
                 <div className="overflow-x-auto">
@@ -405,24 +382,7 @@ function InvoiceHistoryPage() {
                 </div>
             </div>
 
-            {/* Pagination */}
-            {lastPage > 1 && (
-                <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                        Page {page} of {lastPage} &mdash; {total} records
-                    </span>
-                    <div className="flex gap-2">
-                        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                            className="px-3 py-1 rounded border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">
-                            Prev
-                        </button>
-                        <button onClick={() => setPage((p) => Math.min(lastPage, p + 1))} disabled={page === lastPage}
-                            className="px-3 py-1 rounded border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">
-                            Next
-                        </button>
-                    </div>
-                </div>
-            )}
+            <TablePagination page={page} lastPage={lastPage} total={total} onPageChange={setPage} />
 
             {/* View Dialog */}
             <Dialog open={!!viewInv} onOpenChange={(open) => !open && setViewInv(null)}>

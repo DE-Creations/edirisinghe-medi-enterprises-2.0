@@ -3,21 +3,71 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Models\Grn;
 use App\Models\Expense;
 use App\Models\Payable;
 
 class PayableController extends Controller
 {
-    // get all GRNs with payment information
-    public function grns() {
-        $grns = Grn::with(['supplier', 'payables'])
+    // Payments made against a GRN. The payable table is the source of truth;
+    // old GRNs without payable rows fall back to grns.paid_amount.
+    private const GRN_PAYABLES_SUM_SQL = '(select coalesce(sum(p.amount), 0) from payable p where p.grns_id = grns.id)';
+    private const GRN_PAID_SQL = '(case when (select coalesce(sum(p.amount), 0) from payable p where p.grns_id = grns.id) > 0
+        then (select sum(p.amount) from payable p where p.grns_id = grns.id)
+        else coalesce(grns.paid_amount, 0) end)';
+
+    /**
+     * Paginated GRN list for the GRN Payables tab.
+     *
+     * - tab: all | outstanding | paid (outstanding = total_amount > paid)
+     * - search: GRN number or supplier name; searching looks through all dates
+     * - without a search the list is limited to the last 3 months, except the
+     *   Outstanding tab, which always shows every unpaid GRN regardless of age
+     * - meta carries the all-time totals and the per-tab counts for the summary cards
+     */
+    public function grns(Request $request) {
+
+        $search = trim((string) $request->input('search', ''));
+        $tab    = in_array($request->input('tab'), ['all', 'outstanding', 'paid'], true)
+            ? $request->input('tab')
+            : 'all';
+
+        $paid  = self::GRN_PAID_SQL;
+        $since = now()->subMonths(3)->startOfDay();
+
+        $scope = function ($query, string $forTab) use ($search, $paid, $since) {
+            if ($search !== '') {
+                $query->where(function ($q) use ($search) {
+                    $q->where('grn_number', 'like', "%{$search}%")
+                      ->orWhereHas('supplier', fn ($s) => $s->where('name', 'like', "%{$search}%"));
+                });
+            }
+
+            if ($forTab === 'outstanding') {
+                $query->whereRaw("grns.total_amount > {$paid}");
+            } elseif ($forTab === 'paid') {
+                $query->whereRaw("grns.total_amount <= {$paid}");
+            }
+
+            if ($search === '' && $forTab !== 'outstanding') {
+                $query->where('received_date', '>=', $since);
+            }
+
+            return $query;
+        };
+
+        $paginator = $scope(
+                Grn::with('supplier')
+                    ->select('grns.*')
+                    ->selectRaw("{$paid} as paid_calc"),
+                $tab
+            )
             ->latest()
-            ->get()
-            ->map(function ($grn) {
-                // Use payable table as source of truth; fall back to grn.paid_amount for old GRNs
-                $payablesSum = $grn->payables->sum('amount');
-                $totalPaid   = $payablesSum > 0 ? $payablesSum : $grn->paid_amount;
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->through(function ($grn) {
+                $totalPaid   = (float) $grn->paid_calc;
                 $outstanding = max(0, $grn->total_amount - $totalPaid);
                 return [
                     'id'           => $grn->id,
@@ -31,12 +81,50 @@ class PayableController extends Controller
                 ];
             });
 
-        return response()->json($grns);    
+        // All-time totals for the summary cards (independent of search / tab / window).
+        $totals = DB::table('grns')
+            ->whereNull('deleted_at')
+            ->selectRaw("
+                coalesce(sum(total_amount), 0) as total_payable,
+                coalesce(sum(greatest(total_amount - {$paid}, 0)), 0) as total_outstanding
+            ")
+            ->first();
+
+        return response()->json(array_merge($paginator->toArray(), [
+            'meta' => [
+                'total_payable'     => (float) $totals->total_payable,
+                'total_outstanding' => (float) $totals->total_outstanding,
+                'counts' => [
+                    'all'         => $scope(Grn::query(), 'all')->count(),
+                    'outstanding' => $scope(Grn::query(), 'outstanding')->count(),
+                    'paid'        => $scope(Grn::query(), 'paid')->count(),
+                ],
+            ],
+        ]));
     }
 
-    // get all expenses
-    public function expenses() {
-        $expenses = Expense::with('category')->latest()->get()->map(function ($exp) {
+    /**
+     * Paginated expense list. Searching (expense no., description, category) looks
+     * through all dates; without a search only the last 3 months are listed.
+     * meta.total_expenses is the all-time total for the summary card.
+     */
+    public function expenses(Request $request) {
+
+        $search = trim((string) $request->input('search', ''));
+
+        $query = Expense::with('category')->latest()->orderByDesc('id');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('expense_number', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhereHas('category', fn ($c) => $c->where('name', 'like', "%{$search}%"));
+            });
+        } else {
+            $query->where('date', '>=', now()->subMonths(3)->startOfDay()->toDateString());
+        }
+
+        $paginator = $query->paginate(20)->through(function ($exp) {
             return [
                 'id'             => $exp->id,
                 'expense_number' => $exp->expense_number,
@@ -48,7 +136,9 @@ class PayableController extends Controller
             ];
         });
 
-        return response()->json($expenses);
+        return response()->json(array_merge($paginator->toArray(), [
+            'meta' => ['total_expenses' => (float) Expense::sum('amount')],
+        ]));
     }
 
     // get payment history for a reference

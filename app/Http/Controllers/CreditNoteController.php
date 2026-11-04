@@ -98,7 +98,8 @@ class CreditNoteController extends Controller
                 'user:id,name',
                 'items',
             ])
-            ->latest();
+            ->latest()
+            ->orderByDesc('id'); // tie-breaker so pages never overlap or skip rows
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -113,7 +114,12 @@ class CreditNoteController extends Controller
             $query->whereDate('credit_note_date', $request->date);
         }
 
-        return response()->json($query->paginate(50));
+        // Default view: last 3 months only. A search or an explicit date looks further back.
+        if (!$request->filled('search') && !$request->filled('date')) {
+            $query->where('credit_note_date', '>=', now()->subMonths(3)->startOfDay());
+        }
+
+        return response()->json($query->paginate(20));
     }
 
     public function show($id)
